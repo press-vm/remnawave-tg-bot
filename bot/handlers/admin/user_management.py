@@ -24,7 +24,7 @@ USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9_]{5,32}$")
 async def user_management_menu_handler(callback: types.CallbackQuery,
                                       state: FSMContext, i18n_data: dict,
                                       settings: Settings, session: AsyncSession):
-    """Display user management menu"""
+    """Display user management menu with recent users list"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
@@ -32,21 +32,36 @@ async def user_management_menu_handler(callback: types.CallbackQuery,
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
+    # Получаем последних 10 пользователей
+    recent_users = await user_dal.get_recent_users(session, limit=10)
+    
     prompt_text = _(
         "admin_user_management_prompt",
         default="👤 Управление пользователями\n\nВведите ID пользователя или @username для поиска:"
     )
+    
+    # Добавляем список последних пользователей
+    if recent_users:
+        prompt_text += "\n\n📋 **Последние пользователи:**\n"
+        for user in recent_users:
+            user_display = f"{user.first_name or 'Без имени'}"
+            if user.username:
+                user_display += f" (@{user.username})"
+            prompt_text += f"• `{user.user_id}` - {user_display}\n"
+        prompt_text += "\n💡 _Нажмите на ID чтобы скопировать_"
 
     try:
         await callback.message.edit_text(
             prompt_text,
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            parse_mode="Markdown"
         )
     except Exception as e:
         logging.warning(f"Could not edit message for user management: {e}. Sending new.")
         await callback.message.answer(
             prompt_text,
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            parse_mode="Markdown"
         )
     
     await callback.answer()
@@ -902,4 +917,3 @@ async def process_unban_user_handler(message: types.Message, state: FSMContext,
         ))
     
     await state.clear()
-    

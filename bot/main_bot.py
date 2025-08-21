@@ -131,10 +131,17 @@ async def on_startup_configured(dispatcher: Dispatcher):
 
     if settings.START_COMMAND_DESCRIPTION:
         try:
-            await bot.set_my_commands([
+            commands = [
                 BotCommand(command="start", description=settings.START_COMMAND_DESCRIPTION)
-            ])
-            logging.info("STARTUP: /start command description set.")
+            ]
+            # Добавляем команду admin для админов
+            if settings.ADMIN_IDS:
+                commands.append(
+                    BotCommand(command="admin", description="👨‍💼 Админ панель")
+                )
+            
+            await bot.set_my_commands(commands)
+            logging.info(f"STARTUP: Bot commands set: {len(commands)} commands.")
         except Exception as e:
             logging.error(f"STARTUP: Failed to set bot commands: {e}", exc_info=True)
 
