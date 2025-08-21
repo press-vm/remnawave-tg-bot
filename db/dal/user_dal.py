@@ -78,13 +78,6 @@ async def get_banned_users(session: AsyncSession) -> List[User]:
     result = await session.execute(stmt)
     return result.scalars().all()
 
-async def get_all_users_with_panel_uuid(session: AsyncSession) -> List[User]:
-    """Получить всех пользователей у которых есть panel_user_uuid"""
-    result = await session.execute(
-        select(User).where(User.panel_user_uuid.isnot(None))
-    )
-    return result.scalars().all()
-
 
 async def get_all_active_user_ids_for_broadcast(session: AsyncSession) -> List[int]:
     stmt = select(User.user_id).where(User.is_banned == False)
@@ -163,3 +156,15 @@ async def get_enhanced_user_statistics(session: AsyncSession) -> Dict[str, Any]:
         "inactive_users": max(0, inactive_users),
         "referral_users": referral_users
     }
+
+
+async def get_recent_users(session: AsyncSession, limit: int = 10) -> List[User]:
+    """Get most recently registered users"""
+    stmt = (
+        select(User)
+        .where(User.is_banned == False)  # Не показываем забаненных
+        .order_by(User.registration_date.desc())
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
