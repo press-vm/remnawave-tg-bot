@@ -1,21 +1,39 @@
 services:
+  # Telegram Shop Bot
   remnawave-tg-shop:
-    image: ghcr.io/machka-pasla/remnawave-tg-shop:latest
-#    build: .
+    image: ghcr.io/press-vm/remnawave-tg-bot:latest
+    # или для Docker Hub:
+    # image: pressvpn/remnawave-tg-bot:latest
+    # Используем локальную сборку с изменениями
+    # build: .
+    # Закомментируйте image при локальной сборке
+    # image: ghcr.io/machka-pasla/remnawave-tg-shop:latest
     container_name: remnawave-tg-shop
     hostname: remnawave-tg-shop
+    environment:
+      - GENERIC_TIMEZONE=Europe/Moscow
+      - TZ=Europe/Moscow
     env_file:
       - .env
     networks:
       - remnawave-network
     volumes:
       - ./locales:/app/locales
+      # Volume для bot не нужен после внесения изменений в образ
+    ports:
+      - "127.0.0.1:8080:8080"  # ВАЖНО! Пробрасываем порт для webhook
     restart: unless-stopped
+    depends_on:
+      - remnawave-tg-shop-db
 
+  # База данных для бота
   remnawave-tg-shop-db:
-    image: postgres:17
+    image: postgres:17-alpine
     container_name: remnawave-tg-shop-db
     hostname: remnawave-tg-shop-db
+    environment:
+      - GENERIC_TIMEZONE=Europe/Moscow
+      - TZ=Europe/Moscow
     env_file:
       - .env
     volumes:
@@ -23,6 +41,11 @@ services:
     networks:
       - remnawave-network
     restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 networks:
   remnawave-network:

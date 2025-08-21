@@ -522,5 +522,6 @@
   "admin_financial_week_label": "За неделю",
   "admin_financial_month_label": "За месяц",
   "admin_financial_all_time_label": "За все время",
-  "admin_financial_payments_label": "платежей"
+  "admin_financial_payments_label": "платежей",
+  "admin_update_all_names_button": "🔄 Обновить имена"
 }
