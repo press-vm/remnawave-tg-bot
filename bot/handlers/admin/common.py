@@ -28,6 +28,94 @@ from . import logs_admin as admin_logs_handlers
 router = Router(name="admin_common_router")
 
 
+async def update_all_user_names_from_admin_panel(
+    message: types.Message,
+    settings: Settings,
+    panel_service: PanelApiService,
+    session: AsyncSession
+):
+    """Update all user names in Remnawave panel - called from admin panel"""
+    import asyncio
+    from db.dal import user_dal
+    
+    status_msg = await message.answer("⏳ Начинаю обновление имен пользователей в Remnawave...")
+    
+    try:
+        # Получаем всех пользователей с panel_user_uuid
+        users = await user_dal.get_all_users_with_panel_uuid(session)
+        
+        if not users:
+            await status_msg.edit_text("❌ Не найдено пользователей с panel_user_uuid")
+            return
+        
+        updated_count = 0
+        error_count = 0
+        
+        total_users = len(users)
+        await status_msg.edit_text(f"⏳ Обновляю имена для {total_users} пользователей...")
+        
+        for index, user in enumerate(users, 1):
+            try:
+                # Формируем описание
+                full_name = f"{user.first_name or ''} {user.last_name or ''}".strip()
+                
+                if not full_name:
+                    if user.username:
+                        description = f"@{user.username}"
+                    else:
+                        description = f"Telegram ID: {user.user_id}"
+                else:
+                    if user.username:
+                        description = f"{full_name} (@{user.username})"
+                    else:
+                        description = full_name
+                
+                # Обновляем в Remnawave
+                update_result = await panel_service.update_user_details_on_panel(
+                    user.panel_user_uuid,
+                    {
+                        "uuid": user.panel_user_uuid,
+                        "description": description
+                    },
+                    log_response=False
+                )
+                
+                if update_result:
+                    updated_count += 1
+                    logging.info(f"Updated user {user.user_id}: {description}")
+                else:
+                    error_count += 1
+                    logging.error(f"Failed to update user {user.user_id}")
+                
+                # Обновляем статус каждые 10 пользователей
+                if index % 10 == 0:
+                    progress = (index / total_users) * 100
+                    await status_msg.edit_text(
+                        f"⏳ Прогресс: {index}/{total_users} ({progress:.1f}%)\n"
+                        f"✅ Обновлено: {updated_count}\n"
+                        f"❌ Ошибок: {error_count}"
+                    )
+                    await asyncio.sleep(0.5)
+                    
+            except Exception as e:
+                logging.error(f"Error updating user {user.user_id}: {e}")
+                error_count += 1
+                continue
+        
+        # Финальный отчет
+        result_text = "📊 **Обновление завершено!**\n\n"
+        result_text += f"👥 Всего пользователей: {total_users}\n"
+        result_text += f"✅ Успешно обновлено: {updated_count}\n"
+        if error_count > 0:
+            result_text += f"❌ Ошибок: {error_count}"
+        
+        await status_msg.edit_text(result_text, parse_mode="Markdown")
+        
+    except Exception as e:
+        logging.error(f"Critical error in update_all_names: {e}", exc_info=True)
+        await status_msg.edit_text(f"❌ Критическая ошибка: {str(e)}")
+
+
 @router.message(Command("admin"))
 async def admin_panel_command_handler(
     message: types.Message,
@@ -101,6 +189,12 @@ async def admin_panel_actions_callback_handler(
         from . import user_management as admin_user_management_handlers
         await admin_user_management_handlers.user_management_menu_handler(
             callback, state, i18n_data, settings, session)
+    elif action == "update_all_names":
+        # Вызываем функцию обновления имён всех пользователей
+        await callback.answer("Запускаю обновление имён пользователей...")
+        await update_all_user_names_from_admin_panel(
+            callback.message, settings, panel_service, session
+        )
     elif action == "view_banned":
 
         await admin_user_mgmnt_handlers.view_banned_users_handler(

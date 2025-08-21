@@ -78,6 +78,13 @@ async def get_banned_users(session: AsyncSession) -> List[User]:
     result = await session.execute(stmt)
     return result.scalars().all()
 
+async def get_all_users_with_panel_uuid(session: AsyncSession) -> List[User]:
+    """Получить всех пользователей у которых есть panel_user_uuid"""
+    result = await session.execute(
+        select(User).where(User.panel_user_uuid.isnot(None))
+    )
+    return result.scalars().all()
+
 
 async def get_all_active_user_ids_for_broadcast(session: AsyncSession) -> List[int]:
     stmt = select(User.user_id).where(User.is_banned == False)
