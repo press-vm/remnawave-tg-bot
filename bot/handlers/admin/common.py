@@ -9,7 +9,8 @@ from config.settings import Settings
 from bot.keyboards.inline.admin_keyboards import (
     get_admin_panel_keyboard, get_stats_monitoring_keyboard, 
     get_user_management_keyboard, get_ban_management_keyboard,
-    get_promo_marketing_keyboard, get_system_functions_keyboard
+    get_promo_marketing_keyboard, get_system_functions_keyboard,
+    get_back_to_admin_panel_keyboard
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
@@ -189,6 +190,10 @@ async def admin_panel_actions_callback_handler(
         from . import user_management as admin_user_management_handlers
         await admin_user_management_handlers.user_management_menu_handler(
             callback, state, i18n_data, settings, session)
+    elif action == "users_list":
+        # Показываем список всех пользователей с пагинацией
+        page = int(action_parts[2]) if len(action_parts) > 2 else 0
+        await show_users_list_handler(callback, page, i18n_data, settings, session)
     elif action == "update_all_names":
         # Вызываем функцию обновления имён всех пользователей
         await callback.answer("Запускаю обновление имён пользователей...")
@@ -342,3 +347,108 @@ async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: di
     except Exception as e:
         logging.error(f"Error getting queue status: {e}")
         await callback.answer("❌ Ошибка получения статуса очередей", show_alert=True)
+
+
+async def show_users_list_handler(
+    callback: types.CallbackQuery,
+    page: int,
+    i18n_data: dict,
+    settings: Settings,
+    session: AsyncSession
+):
+    """Show paginated users list"""
+    from db.dal import user_dal
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    if not i18n or not callback.message:
+        await callback.answer("Error processing request.", show_alert=True)
+        return
+    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
+    
+    # Получаем всех пользователей
+    users = await user_dal.get_recent_users(session, limit=1000)  # Получаем до 1000 пользователей
+    
+    if not users:
+        await callback.message.edit_text(
+            _("admin_users_list_empty"),
+            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+        )
+        await callback.answer()
+        return
+    
+    # Пагинация
+    page_size = 10
+    total_pages = (len(users) + page_size - 1) // page_size
+    page = max(0, min(page, total_pages - 1))
+    
+    start_idx = page * page_size
+    end_idx = min(start_idx + page_size, len(users))
+    page_users = users[start_idx:end_idx]
+    
+    # Формируем сообщение
+    message_text = _("admin_users_list_title", page=page + 1, total=total_pages) + "\n\n"
+    
+    for user in page_users:
+        user_display = f"{user.first_name or 'Без имени'}"
+        if user.username:
+            user_display += f" (@{user.username})"
+        message_text += f"• `{user.user_id}` - {user_display}\n"
+    
+    message_text += "\n💡 _Нажмите на ID чтобы скопировать_"
+    
+    # Кнопки пагинации
+    builder = InlineKeyboardBuilder()
+    
+    # Навигация
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(
+            types.InlineKeyboardButton(
+                text="⬅️ Пред.",
+                callback_data=f"admin_action:users_list:{page - 1}"
+            )
+        )
+    
+    nav_buttons.append(
+        types.InlineKeyboardButton(
+            text=f"{page + 1}/{total_pages}",
+            callback_data="stub"
+        )
+    )
+    
+    if page < total_pages - 1:
+        nav_buttons.append(
+            types.InlineKeyboardButton(
+                text="След. ➡️",
+                callback_data=f"admin_action:users_list:{page + 1}"
+            )
+        )
+    
+    if nav_buttons:
+        builder.row(*nav_buttons)
+    
+    # Кнопка назад
+    builder.row(
+        types.InlineKeyboardButton(
+            text=_("back_to_user_management_button"),
+            callback_data="admin_section:user_management"
+        )
+    )
+    
+    try:
+        await callback.message.edit_text(
+            message_text,
+            reply_markup=builder.as_markup(),
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logging.error(f"Error editing message: {e}")
+        await callback.message.answer(
+            message_text,
+            reply_markup=builder.as_markup(),
+            parse_mode="Markdown"
+        )
+    
+    await callback.answer()
