@@ -1,0 +1,6 @@
+from aiogram import Router
+
+# Create empty router to prevent import errors
+router = Router(name="admin_update_names_router")
+
+# Functionality has been integrated into user_management.py

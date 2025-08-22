@@ -1,7 +1,7 @@
 services:
+  # Telegram Shop Bot
   remnawave-tg-shop:
-    image: ghcr.io/machka-pasla/remnawave-tg-shop:latest
-#    build: .
+    image: ghcr.io/press-vm/remnawave-tg-bot:latest
     container_name: remnawave-tg-shop
     hostname: remnawave-tg-shop
     env_file:
@@ -11,9 +11,13 @@ services:
     volumes:
       - ./locales:/app/locales
     restart: unless-stopped
+    depends_on:
+      - remnawave-tg-shop-db
+    # Traefik labels убираем, так как используем config.yml
 
+  # База данных для бота
   remnawave-tg-shop-db:
-    image: postgres:17
+    image: postgres:17-alpine
     container_name: remnawave-tg-shop-db
     hostname: remnawave-tg-shop-db
     env_file:
@@ -23,6 +27,11 @@ services:
     networks:
       - remnawave-network
     restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 networks:
   remnawave-network:
