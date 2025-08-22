@@ -201,9 +201,6 @@ async def pay_yk_callback_handler(
         return
 
     user_id = callback.from_user.id
-
-    payment_description = get_text("payment_description_subscription",
-                                   months=months)
     currency_code_for_yk = "RUB"
 
     payment_record_data = {
@@ -211,7 +208,7 @@ async def pay_yk_callback_handler(
         "amount": price_rub,
         "currency": currency_code_for_yk,
         "status": "pending_yookassa",
-        "description": payment_description,
+        "description": "Информационно-технологические услуги",  # Безопасное описание для БД
         "subscription_duration_months": months,
     }
     db_payment_record = None
@@ -248,9 +245,10 @@ async def pay_yk_callback_handler(
     payment_response_yk = await yookassa_service.create_payment(
         amount=price_rub,
         currency=currency_code_for_yk,
-        description=payment_description,
+        # Не передаём description - будет использована случайная безопасная формулировка
         metadata=yookassa_metadata,
-        receipt_email=receipt_email_for_yk)
+        receipt_email=receipt_email_for_yk
+    )
 
     if payment_response_yk and payment_response_yk.get("confirmation_url"):
         try:
