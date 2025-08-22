@@ -156,3 +156,15 @@ async def get_enhanced_user_statistics(session: AsyncSession) -> Dict[str, Any]:
         "inactive_users": max(0, inactive_users),
         "referral_users": referral_users
     }
+
+
+async def get_recent_users(session: AsyncSession, limit: int = 10) -> List[User]:
+    """Get most recently registered users"""
+    stmt = (
+        select(User)
+        .where(User.is_banned == False)  # Не показываем забаненных
+        .order_by(User.registration_date.desc())
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
