@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Условия использования - PressVPN</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #5865F2;
+            --primary-dark: #4752C4;
+            --secondary: #57F287;
+            --dark: #1a1a2e;
+            --darker: #0f0f1e;
+            --light: #ffffff;
+            --gray: #99AAB5;
+            --text-gray: #b8c1cc;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 100%);
+            color: var(--light);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        header {
+            background: rgba(15, 15, 30, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem 2rem;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .header-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--gray);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            position: relative;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+        }
+
+        .nav-links a:hover {
+            color: var(--light);
+            background: rgba(88, 101, 242, 0.1);
+        }
+
+        /* Main Content */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 100px 2rem 4rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, var(--light) 0%, var(--gray) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .last-updated {
+            color: var(--gray);
+            margin-bottom: 3rem;
+            font-size: 0.9rem;
+        }
+
+        .terms-section {
+            background: rgba(26, 26, 46, 0.3);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(88, 101, 242, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .terms-section:hover {
+            border-color: rgba(88, 101, 242, 0.3);
+            background: rgba(26, 26, 46, 0.4);
+        }
+
+        h2 {
+            color: var(--secondary);
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        h2::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 24px;
+            background: var(--secondary);
+            border-radius: 2px;
+        }
+
+        h3 {
+            color: var(--primary);
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        p {
+            color: var(--text-gray);
+            margin-bottom: 1rem;
+            line-height: 1.8;
+        }
+
+        ul {
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        li {
+            color: var(--text-gray);
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        /* Highlight Box */
+        .highlight-box {
+            background: linear-gradient(135deg, rgba(88, 101, 242, 0.1) 0%, rgba(87, 242, 135, 0.1) 100%);
+            border-left: 4px solid var(--secondary);
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border-radius: 8px;
+        }
+
+        .highlight-box h3 {
+            color: var(--secondary);
+            margin-top: 0;
+        }
+
+        /* Contact Section */
+        .contact-section {
+            background: linear-gradient(135deg, rgba(88, 101, 242, 0.2) 0%, rgba(87, 242, 135, 0.2) 100%);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            margin-top: 3rem;
+        }
+
+        .contact-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: var(--light);
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(88, 101, 242, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: var(--light);
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 4rem;
+            padding: 2rem;
+            text-align: center;
+            border-top: 1px solid rgba(88, 101, 242, 0.2);
+        }
+
+        .footer-text {
+            color: var(--gray);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .container {
+                padding: 80px 1rem 2rem;
+            }
+
+            .terms-section {
+                padding: 1.5rem;
+            }
+
+            .contact-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <a href="https://pressvpn.shop" class="logo">PressVPN</a>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="https://pressvpn.shop">Главная</a></li>
+                    <li><a href="https://status.pressvpn.shop">Статус</a></li>
+                    <li><a href="https://t.me/pressvpnshop_bot">Бот</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container">
+        <h1>Условия использования сервиса PressVPN</h1>
+        <p class="last-updated">Последнее обновление: 23 января 2025</p>
+
+        <div class="terms-section">
+            <h2>1. Общие положения</h2>
+            <p>Добро пожаловать в PressVPN! Используя наш сервис, вы соглашаетесь с данными условиями использования. Пожалуйста, внимательно ознакомьтесь с ними перед началом использования сервиса.</p>
+            <p>Мы оставляем за собой право изменять данные условия в любое время. О существенных изменениях мы уведомим вас через Telegram бот или по электронной почте.</p>
+        </div>
+
+        <div class="terms-section">
+            <h2>2. Использование сервиса</h2>
+            
+            <h3>2.1. Разрешенное использование</h3>
+            <p>Наш VPN-сервис предназначен для:</p>
+            <ul>
+                <li>Защиты вашей приватности в интернете</li>
+                <li>Безопасного подключения к общественным Wi-Fi сетям</li>
+                <li>Доступа к заблокированному контенту в вашем регионе</li>
+                <li>Защиты от слежки и сбора данных</li>
+            </ul>
+
+            <h3>2.2. Запрещенное использование</h3>
+            <p>Строго запрещается использовать сервис для:</p>
+            <ul>
+                <li>Любой незаконной деятельности</li>
+                <li>Спама, фишинга или распространения вредоносного ПО</li>
+                <li>DDoS-атак или других видов кибератак</li>
+                <li>Нарушения авторских прав</li>
+                <li>Передачи доступа третьим лицам без разрешения</li>
+            </ul>
+        </div>
+
+        <div class="highlight-box">
+            <h3>⚠️ Важно</h3>
+            <p>Нарушение правил использования может привести к немедленной блокировке аккаунта без возврата средств.</p>
+        </div>
+
+        <div class="terms-section">
+            <h2>3. Оплата и тарифы</h2>
+            
+            <h3>3.1. Стоимость подписки</h3>
+            <ul>
+                <li>1 месяц — 199₽</li>
+                <li>3 месяца — 499₽</li>
+                <li>6 месяцев — 899₽</li>
+                <li>12 месяцев — 1599₽</li>
+            </ul>
+
+            <h3>3.2. Способы оплаты</h3>
+            <p>Мы принимаем оплату через YooKassa, что позволяет использовать банковские карты, электронные кошельки и другие популярные способы оплаты.</p>
+
+            <h3>3.3. Политика возврата</h3>
+            <p>Возврат средств возможен в течение 7 дней с момента оплаты при условии:</p>
+            <ul>
+                <li>Использовано менее 1 ГБ трафика</li>
+                <li>Это ваш первый запрос на возврат</li>
+                <li>Не было нарушений условий использования</li>
+            </ul>
+        </div>
+
+        <div class="terms-section">
+            <h2>4. Конфиденциальность</h2>
+            
+            <h3>4.1. Политика "без логов"</h3>
+            <p>Мы придерживаемся строгой политики конфиденциальности и не сохраняем:</p>
+            <ul>
+                <li>Историю посещенных сайтов</li>
+                <li>IP-адреса подключений</li>
+                <li>Временные метки сессий</li>
+                <li>Используемую пропускную способность</li>
+            </ul>
+
+            <h3>4.2. Собираемые данные</h3>
+            <p>Для работы сервиса мы собираем только минимально необходимую информацию:</p>
+            <ul>
+                <li>Telegram ID для авторизации</li>
+                <li>Email для восстановления доступа (опционально)</li>
+                <li>Платежную информацию для обработки транзакций</li>
+            </ul>
+        </div>
+
+        <div class="terms-section">
+            <h2>5. Техническая поддержка</h2>
+            <p>Наша команда поддержки готова помочь вам 24/7. Вы можете связаться с нами:</p>
+            <ul>
+                <li>Через Telegram группу: <a href="https://t.me/pressvpn_support" style="color: var(--secondary);">@pressvpn_support</a></li>
+                <li>По email: support@pressvpn.shop</li>
+                <li>Через бота: <a href="https://t.me/pressvpnshop_bot" style="color: var(--secondary);">@pressvpnshop_bot</a></li>
+            </ul>
+            <p>Среднее время ответа: 1-2 часа в рабочее время, до 12 часов в выходные.</p>
+        </div>
+
+        <div class="terms-section">
+            <h2>6. Ограничение ответственности</h2>
+            <p>Сервис предоставляется "как есть". Мы прилагаем все усилия для обеспечения стабильной работы, но не можем гарантировать:</p>
+            <ul>
+                <li>100% доступность сервиса</li>
+                <li>Определенную скорость соединения</li>
+                <li>Доступ к конкретным заблокированным ресурсам</li>
+            </ul>
+            <p>Мы не несем ответственности за любые убытки, связанные с использованием или невозможностью использования сервиса.</p>
+        </div>
+
+        <div class="terms-section">
+            <h2>7. Изменения в условиях</h2>
+            <p>Мы можем обновлять эти условия время от времени. При внесении существенных изменений мы уведомим вас через:</p>
+            <ul>
+                <li>Сообщение в Telegram боте</li>
+                <li>Email (если предоставлен)</li>
+                <li>Объявление в группе поддержки</li>
+            </ul>
+            <p>Продолжение использования сервиса после изменений означает ваше согласие с новыми условиями.</p>
+        </div>
+
+        <!-- Contact Section -->
+        <div class="contact-section">
+            <h2>Остались вопросы?</h2>
+            <p>Мы всегда готовы помочь и ответить на ваши вопросы</p>
+            <div class="contact-buttons">
+                <a href="https://t.me/pressvpn_support" class="btn">
+                    💬 Написать в поддержку
+                </a>
+                <a href="https://t.me/pressvpnshop_bot" class="btn btn-outline">
+                    🤖 Открыть бота
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p class="footer-text">© 2025 PressVPN. Все права защищены.</p>
+    </footer>
+
+    <script>
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Add scroll effect to header
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 50) {
+                header.style.background = 'rgba(15, 15, 30, 0.98)';
+            } else {
+                header.style.background = 'rgba(15, 15, 30, 0.95)';
+            }
+        });
+    </script>
+</body>
+</html>
