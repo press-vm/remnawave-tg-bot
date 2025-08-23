@@ -33,6 +33,24 @@ services:
       timeout: 5s
       retries: 5
 
+
+  # Landing Page
+  landing:
+    image: nginx:alpine
+    container_name: landing
+    restart: always
+    volumes:
+      - ./landing/index.html:/usr/share/nginx/html/index.html:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.landing.rule=Host(`pressvpn.shop`)"
+      - "traefik.http.routers.landing.entrypoints=https"
+      - "traefik.http.routers.landing.tls=true"
+      - "traefik.http.routers.landing.tls.certresolver=cloudflare"
+      - "traefik.docker.network=remnawave-network"
+    networks:
+      - remnawave-network
+      
 networks:
   remnawave-network:
     external: true
