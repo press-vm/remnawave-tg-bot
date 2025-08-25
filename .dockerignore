@@ -1,0 +1,96 @@
+# ==================== GIT ====================
+.git
+.gitignore
+.gitattributes
+
+# ==================== ФАЙЛЫ ОКРУЖЕНИЯ ====================
+.env
+.env.*
+
+# ==================== ДОКУМЕНТАЦИЯ ====================
+*.md
+README*
+CHANGELOG*
+CONTRIBUTING*
+LICENSE*
+docs/
+documentation/
+
+# ==================== СИСТЕМНЫЕ ФАЙЛЫ ====================
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# ==================== ВРЕМЕННЫЕ ФАЙЛЫ ====================
+*.tmp
+*.temp
+*.log
+*.log.*
+*.bak
+*.backup
+
+# ==================== PYTHON ====================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.tox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ==================== ВИРТУАЛЬНЫЕ ОКРУЖЕНИЯ ====================
+.venv/
+venv/
+.env/
+env/
+
+# ==================== IDE ====================
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ==================== NODE.JS ====================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==================== БЭКАПЫ И АРХИВЫ ====================
+*.zip
+*.tar.gz
+*.rar
+*.7z
+backup/
+backups/
+
+# ==================== ТЕСТОВЫЕ ФАЙЛЫ ====================
+test/
+tests/
+*_test.py
+test_*.py
+playground/
+sandbox/
+
+# ==================== КОНФИДЕНЦИАЛЬНЫЕ ДАННЫЕ ====================
+secrets/
+private/
+*.key
+*.pem
+*.crt
+
+# ==================== СКРИПТЫ РАЗРАБОТКИ ====================
+scripts/dev/
+dev_scripts/
+Makefile
+docker-compose.override.yml
+docker-compose.dev.yml
