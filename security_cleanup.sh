@@ -5,7 +5,7 @@
 
 set -e
 
-PROJECT_DIR="/opt/remnawave-tg-shop"
+PROJECT_DIR="/opt/remnawave-tg-bot"
 BACKUP_DIR="/opt/backups/remnawave-$(date +%Y%m%d_%H%M%S)"
 
 echo "🔧 PressVPN Security Cleanup Script"
@@ -182,7 +182,7 @@ cat > "$BACKUP_SCRIPT" << 'EOF'
 # Automated backup script for PressVPN
 
 BACKUP_DIR="/opt/backups"
-PROJECT_DIR="/opt/remnawave-tg-shop"
+PROJECT_DIR="/opt/remnawave-tg-bot"
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/remnawave_backup_$DATE.tar.gz"
 

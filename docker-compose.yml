@@ -13,7 +13,6 @@ services:
     restart: unless-stopped
     depends_on:
       - remnawave-tg-shop-db
-    # Traefik labels убираем, так как используем config.yml
 
   # База данных для бота
   remnawave-tg-shop-db:
@@ -32,7 +31,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
 
   # Landing Page
   landing:
@@ -57,4 +55,5 @@ networks:
 
 volumes:
   remnawave-tg-shop-db-data:
+    external: true
     name: remnawave-tg-shop-db-data
