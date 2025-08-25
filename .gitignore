@@ -1,17 +1,138 @@
-# Игнорировать базу данных
-bot_database.sqlite3
-
-# Игнорировать файлы окружения
+# ==================== ФАЙЛЫ ОКРУЖЕНИЯ ====================
 .env
+.env.local
+.env.development
+.env.staging
+.env.production
+.env.backup
 
-# Игнорировать кэш Python
+# ==================== БАЗА ДАННЫХ ====================
+bot_database.sqlite3
+*.db
+*.sql
+*.sqlite
+*.sqlite3
+db_backups/
+
+# ==================== PYTHON ====================
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Игнорировать настройки IDE (если используешь, например, PyCharm или VSCode)
+# ==================== ВИРТУАЛЬНЫЕ ОКРУЖЕНИЯ ====================
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ==================== IDE И РЕДАКТОРЫ ====================
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
 
-# Игнорировать Docker артефакты (если вдруг)
-*.log
-*.pid
+# ==================== СИСТЕМНЫЕ ФАЙЛЫ ====================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ==================== ЛОГИ ====================
+*.log
+*.log.*
+logs/
+log/
+
+# ==================== DOCKER ====================
+*.pid
+.dockerignore.bak
+
+# ==================== БЭКАПЫ ====================
+*.backup
+*.bak
+*.tmp
+backups/
+backup/
+
+# ==================== БЕЗОПАСНОСТЬ ====================
+# Приватные ключи
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Секреты и токены
+secrets.txt
+tokens.txt
+api_keys.txt
+
+# ==================== ВРЕМЕННЫЕ ФАЙЛЫ ====================
+*.tmp
+*.temp
+temp/
+tmp/
+
+# ==================== КОНФИДЕНЦИАЛЬНЫЕ ДАННЫЕ ====================
+# Файлы с паролями, токенами, ключами API
+passwords.txt
+api_tokens.txt
+credentials.json
+config_private.py
+
+# ==================== МОНИТОРИНГ И МЕТРИКИ ====================
+*.metrics
+monitoring_data/
+metrics/
+
+# ==================== ФАЙЛЫ ОБНОВЛЕНИЙ ====================
+update/
+updates/
+patches/
+
+# ==================== ФАЙЛЫ РАЗРАБОТКИ ====================
+debug.py
+test_*.py
+playground/
+sandbox/
+
+# ==================== АРХИВЫ ====================
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# ==================== NODE.JS (если используется) ====================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock

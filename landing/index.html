@@ -255,69 +255,6 @@
             line-height: 1.6;
         }
 
-        /* Status Section */
-        .status-section {
-            padding: 4rem 2rem;
-            display: none;
-        }
-
-        .status-container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .status-grid {
-            display: grid;
-            gap: 1rem;
-            margin-top: 2rem;
-        }
-
-        .status-item {
-            background: rgba(26, 26, 46, 0.5);
-            border: 1px solid rgba(88, 101, 242, 0.2);
-            border-radius: 10px;
-            padding: 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.3s ease;
-        }
-
-        .status-item:hover {
-            border-color: var(--secondary);
-            background: rgba(26, 26, 46, 0.7);
-        }
-
-        .status-name {
-            font-weight: bold;
-        }
-
-        .status-info {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .status-indicator {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        .status-online {
-            background: var(--success);
-        }
-
-        .status-offline {
-            background: var(--danger);
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
         /* Terms Section */
         .terms-section {
             padding: 4rem 2rem;
@@ -396,21 +333,6 @@
                 grid-template-columns: 1fr;
             }
         }
-
-        /* Loading Animation */
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: var(--secondary);
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
     </style>
 </head>
 <body>
@@ -420,7 +342,6 @@
             <div class="logo">PressVPN</div>
             <ul class="nav-links">
                 <li><a href="#home">Главная</a></li>
-                <li><a href="#status">Статус</a></li>
                 <li><a href="#terms">Условия</a></li>
                 <li><a href="https://t.me/pressvpnshop_bot">Бот</a></li>
             </ul>
@@ -465,16 +386,6 @@
         </div>
     </section>
 
-    <!-- Status Section -->
-    <section class="status-section" id="status">
-        <div class="status-container">
-            <h2>Статус серверов</h2>
-            <div class="status-grid" id="statusGrid">
-                <div class="loading"></div>
-            </div>
-        </div>
-    </section>
-
     <!-- Terms Section -->
     <section class="terms-section" id="terms">
         <div class="terms-container">
@@ -509,7 +420,6 @@
     <!-- Footer -->
     <footer>
         <div class="footer-links">
-            <a href="#status">Статус</a>
             <a href="#terms">Условия</a>
             <a href="https://t.me/pressvpnshop_bot">Telegram</a>
         </div>
@@ -526,14 +436,11 @@
                     target.scrollIntoView({ behavior: 'smooth' });
                     
                     // Show/hide sections
-                    document.querySelectorAll('.status-section, .terms-section').forEach(section => {
+                    document.querySelectorAll('.terms-section').forEach(section => {
                         section.style.display = 'none';
                     });
                     
-                    if (this.getAttribute('href') === '#status') {
-                        document.querySelector('.status-section').style.display = 'block';
-                        loadServerStatus();
-                    } else if (this.getAttribute('href') === '#terms') {
+                    if (this.getAttribute('href') === '#terms') {
                         document.querySelector('.terms-section').style.display = 'block';
                     }
                 }
@@ -550,41 +457,8 @@
             }
         });
 
-        // Load server status
-        async function loadServerStatus() {
-            const statusGrid = document.getElementById('statusGrid');
-            
-            // Simulate loading
-            statusGrid.innerHTML = '<div class="loading"></div>';
-            
-            // Simulate API call
-            setTimeout(() => {
-                const servers = [
-                    { name: 'Netherlands #1', status: 'online', ping: '12ms', load: '45%' },
-                    { name: 'Germany #1', status: 'online', ping: '18ms', load: '62%' },
-                    { name: 'USA East #1', status: 'online', ping: '95ms', load: '38%' },
-                    { name: 'Singapore #1', status: 'online', ping: '145ms', load: '71%' },
-                    { name: 'UK London #1', status: 'online', ping: '22ms', load: '55%' }
-                ];
-                
-                statusGrid.innerHTML = servers.map(server => `
-                    <div class="status-item">
-                        <div class="status-name">${server.name}</div>
-                        <div class="status-info">
-                            <span>Ping: ${server.ping}</span>
-                            <span>Load: ${server.load}</span>
-                            <div class="status-indicator status-${server.status}"></div>
-                        </div>
-                    </div>
-                `).join('');
-            }, 1000);
-        }
-
         // Check URL hash on load
-        if (window.location.hash === '#status') {
-            document.querySelector('.status-section').style.display = 'block';
-            loadServerStatus();
-        } else if (window.location.hash === '#terms') {
+        if (window.location.hash === '#terms') {
             document.querySelector('.terms-section').style.display = 'block';
         }
     </script>
