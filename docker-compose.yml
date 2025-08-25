@@ -38,7 +38,7 @@ services:
     container_name: landing
     restart: always
     volumes:
-      - ./landing:/usr/share/nginx/html:ro
+      - ./landing/index.html:/usr/share/nginx/html/index.html:ro
       - ./nginx-security.conf:/etc/nginx/conf.d/default.conf:ro
     labels:
       - "traefik.enable=true"

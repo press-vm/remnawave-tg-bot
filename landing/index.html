@@ -1,30 +1,331 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SecureNet - Browse the Web with Total Privacy and Speed</title>
-    <meta name="description" content="Experience secure, private internet access with lightning-fast global connections. Military-grade encryption, zero-log policy, and seamless worldwide content access." />
-    <meta name="keywords" content="secure browsing, internet privacy, encrypted connection, global access, fast internet, online security" />
-    <meta name="author" content="SecureNet" />
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PressVPN - Быстрый и Надёжный VPN</title>
+    <meta name="description" content="Защитите свою приватность и получите доступ к любому контенту с PressVPN. Современные протоколы шифрования и высокая скорость подключения.">
+    <meta name="keywords" content="vpn, впн, безопасность, приватность, шифрование, анонимность, интернет">
+    <meta name="author" content="PressVPN">
 
-    <meta property="og:title" content="SecureNet - Browse the Web with Total Privacy and Speed" />
-    <meta property="og:description" content="Experience secure, private internet access with lightning-fast global connections. Military-grade encryption, zero-log policy, and seamless worldwide content access." />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="/og-image.jpg" />
-    <meta property="og:url" content="https://securenet.com" />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="SecureNet - Browse the Web with Total Privacy and Speed" />
-    <meta name="twitter:description" content="Experience secure, private internet access with lightning-fast global connections. Military-grade encryption, zero-log policy, and seamless worldwide content access." />
-    <meta name="twitter:image" content="/og-image.jpg" />
+    <meta property="og:title" content="PressVPN - Быстрый и Надёжный VPN">
+    <meta property="og:description" content="Защитите свою приватность и получите доступ к любому контенту с PressVPN. Современные протоколы шифрования и высокая скорость подключения.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://pressvpn.shop">
     
-    <link rel="canonical" href="https://securenet.com" />
-    <script type="module" crossorigin src="/assets/index-Cv32am0C.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-h-2qcEWM.css">
-  </head>
+    <link rel="canonical" href="https://pressvpn.shop">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  <body>
-    <div id="root"></div>
-  </body>
+        :root {
+            --primary: #5865F2;
+            --primary-dark: #4752C4;
+            --secondary: #57F287;
+            --dark: #1a1a2e;
+            --darker: #0f0f1e;
+            --light: #ffffff;
+            --gray: #99AAB5;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 100%);
+            color: var(--light);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(15, 15, 30, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--gray);
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--light);
+        }
+
+        .hero {
+            padding: 8rem 2rem 4rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--light) 0%, var(--gray) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--gray);
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: var(--light);
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(88, 101, 242, 0.3);
+        }
+
+        .features {
+            padding: 4rem 2rem;
+            background: rgba(15, 15, 30, 0.5);
+        }
+
+        .features-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: rgba(26, 26, 46, 0.5);
+            border: 1px solid rgba(88, 101, 242, 0.2);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--secondary);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--light);
+        }
+
+        .feature-description {
+            color: var(--gray);
+            line-height: 1.6;
+        }
+
+        .terms-section {
+            padding: 4rem 2rem;
+            display: none;
+        }
+
+        .terms-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(26, 26, 46, 0.3);
+            border-radius: 15px;
+            padding: 2rem;
+        }
+
+        .terms-container h2 {
+            margin-bottom: 1.5rem;
+            color: var(--secondary);
+        }
+
+        .terms-container h3 {
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        .terms-container p, .terms-container li {
+            color: var(--gray);
+            line-height: 1.8;
+            margin-bottom: 1rem;
+        }
+
+        .terms-container ul {
+            margin-left: 2rem;
+        }
+
+        footer {
+            padding: 2rem;
+            text-align: center;
+            background: var(--darker);
+            border-top: 1px solid rgba(88, 101, 242, 0.2);
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .footer-links a {
+            color: var(--gray);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--light);
+        }
+
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .hero h1 { font-size: 2rem; }
+            .features-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <div class="logo">PressVPN</div>
+            <ul class="nav-links">
+                <li><a href="#home">Главная</a></li>
+                <li><a href="#terms">Условия</a></li>
+                <li><a href="https://t.me/pressvpnshop_bot">Бот</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="hero" id="home">
+        <div class="hero-content">
+            <h1>Быстрый и Надёжный VPN</h1>
+            <p>Защитите свою приватность и получите доступ к любому контенту в интернете</p>
+            <a href="https://t.me/pressvpnshop_bot" class="cta-button">Начать использовать</a>
+        </div>
+    </section>
+
+    <section class="features">
+        <div class="features-container">
+            <div class="feature-card">
+                <div class="feature-icon">🚀</div>
+                <h3 class="feature-title">Высокая скорость</h3>
+                <p class="feature-description">
+                    Серверы с пропускной способностью до 10 Гбит/с для комфортного стриминга и работы
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3 class="feature-title">Полная безопасность</h3>
+                <p class="feature-description">
+                    Современные протоколы шифрования и политика без логов для вашей приватности
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🌍</div>
+                <h3 class="feature-title">Глобальная сеть</h3>
+                <p class="feature-description">
+                    Серверы в разных странах для доступа к любому контенту без ограничений
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="terms-section" id="terms">
+        <div class="terms-container">
+            <h2>Условия использования</h2>
+            
+            <h3>1. Общие положения</h3>
+            <p>Используя сервис PressVPN, вы соглашаетесь с данными условиями.</p>
+            
+            <h3>2. Использование сервиса</h3>
+            <p>Вы обязуетесь использовать сервис только в законных целях.</p>
+            
+            <h3>3. Оплата и возврат</h3>
+            <p>Возврат средств возможен в течение 7 дней с момента оплаты.</p>
+            
+            <h3>4. Конфиденциальность</h3>
+            <p>Мы не сохраняем логи вашей активности.</p>
+            
+            <h3>5. Контакты</h3>
+            <p>Обращайтесь в поддержку через Telegram бота или на email: support@pressvpn.shop</p>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-links">
+            <a href="#terms">Условия</a>
+            <a href="https://t.me/pressvpnshop_bot">Telegram</a>
+        </div>
+        <p style="color: var(--gray);">© 2024 PressVPN. Все права защищены.</p>
+    </footer>
+
+    <script>
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                    
+                    document.querySelectorAll('.terms-section').forEach(section => {
+                        section.style.display = 'none';
+                    });
+                    
+                    if (this.getAttribute('href') === '#terms') {
+                        document.querySelector('.terms-section').style.display = 'block';
+                    }
+                }
+            });
+        });
+
+        if (window.location.hash === '#terms') {
+            document.querySelector('.terms-section').style.display = 'block';
+        }
+    </script>
+</body>
 </html>
