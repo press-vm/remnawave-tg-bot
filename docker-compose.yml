@@ -4,6 +4,9 @@ services:
     image: ghcr.io/press-vm/remnawave-tg-bot:latest
     container_name: remnawave-tg-shop
     hostname: remnawave-tg-shop
+    environment:
+      - GENERIC_TIMEZONE=Europe/Moscow
+      - TZ=Europe/Moscow
     env_file:
       - .env
     networks:
@@ -19,6 +22,9 @@ services:
     image: postgres:17-alpine
     container_name: remnawave-tg-shop-db
     hostname: remnawave-tg-shop-db
+    environment:
+      - GENERIC_TIMEZONE=Europe/Moscow
+      - TZ=Europe/Moscow
     env_file:
       - .env
     volumes:
@@ -37,6 +43,9 @@ services:
     image: nginx:alpine
     container_name: landing
     restart: always
+    environment:
+      - GENERIC_TIMEZONE=Europe/Moscow
+      - TZ=Europe/Moscow
     volumes:
       - ./landing/index.html:/usr/share/nginx/html/index.html:ro
       - ./nginx-security.conf:/etc/nginx/conf.d/default.conf:ro
