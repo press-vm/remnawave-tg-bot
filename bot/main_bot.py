@@ -103,10 +103,10 @@ async def on_startup_configured(dispatcher: Dispatcher):
                 "STARTUP: Skipped setting Telegram webhook due to security or configuration error."
             )
     else:
-        logging.info(
-            "STARTUP: WEBHOOK_BASE_URL not set in environment. Running in polling mode and clearing any existing webhook."
+        logging.error(
+            "STARTUP: WEBHOOK_BASE_URL not set in environment. Webhook mode is required. Exiting."
         )
-        await bot.delete_webhook(drop_pending_updates=True)
+        raise SystemExit("WEBHOOK_BASE_URL is required. Polling mode is disabled.")
 
     if settings.SUBSCRIPTION_MINI_APP_URL:
         try:
@@ -131,17 +131,10 @@ async def on_startup_configured(dispatcher: Dispatcher):
 
     if settings.START_COMMAND_DESCRIPTION:
         try:
-            commands = [
+            await bot.set_my_commands([
                 BotCommand(command="start", description=settings.START_COMMAND_DESCRIPTION)
-            ]
-            # Добавляем команду admin для админов
-            if settings.ADMIN_IDS:
-                commands.append(
-                    BotCommand(command="admin", description="👨‍💼 Админ панель")
-                )
-            
-            await bot.set_my_commands(commands)
-            logging.info(f"STARTUP: Bot commands set: {len(commands)} commands.")
+            ])
+            logging.info("STARTUP: /start command description set.")
         except Exception as e:
             logging.error(f"STARTUP: Failed to set bot commands: {e}", exc_info=True)
 
@@ -327,138 +320,101 @@ async def run_bot(settings_param: Settings):
     dp.update.outer_middleware(ActionLoggerMiddleware(settings=settings_param))
 
     dp.startup.register(on_startup_configured)
-    # Register shutdown callback directly so Dispatcher instance is provided
     dp.shutdown.register(on_shutdown_configured)
 
     await register_all_routers(dp, settings_param)
 
     tg_webhook_base = settings_param.WEBHOOK_BASE_URL
-    yk_webhook_base = settings_param.WEBHOOK_BASE_URL
 
-    should_run_aiohttp_server = bool(tg_webhook_base) or (
-        bool(yk_webhook_base) and bool(settings_param.yookassa_webhook_path)
-    )
-
-    telegram_uses_webhook_mode = bool(tg_webhook_base)
-    run_telegram_polling = not telegram_uses_webhook_mode
+    # Webhook mode is now required - exit if not configured
+    if not tg_webhook_base:
+        logging.error("WEBHOOK_BASE_URL is required. Polling mode is disabled. Exiting.")
+        await dp.emit_shutdown()
+        raise SystemExit("WEBHOOK_BASE_URL is required. Polling mode is disabled.")
 
     logging.info(f"--- Bot Run Mode Decision ---")
-    logging.info(
-        f"Configured WEBHOOK_BASE_URL: '{tg_webhook_base}' -> Telegram Webhook Mode: {telegram_uses_webhook_mode}"
-    )
-    logging.info(
-        f"YooKassa webhook path: '{settings_param.yookassa_webhook_path}'"
-    )
-    logging.info(f"Decision: Run AIOHTTP server: {should_run_aiohttp_server}")
-    logging.info(f"Decision: Run Telegram Polling: {run_telegram_polling}")
+    logging.info(f"Configured WEBHOOK_BASE_URL: '{tg_webhook_base}' -> Webhook Mode: ENABLED")
+    logging.info(f"YooKassa webhook path: '{settings_param.yookassa_webhook_path}'")
+    logging.info(f"Decision: Run AIOHTTP server: ENABLED (required for webhooks)")
     logging.info(f"--- End Bot Run Mode Decision ---")
 
     web_app_runner = None
     main_tasks = []
 
-    if should_run_aiohttp_server:
-        app = web.Application()
-        app["bot"] = bot
-        app["dp"] = dp
-        app["settings"] = settings_param
-        app["i18n"] = i18n_instance
-        app["async_session_factory"] = local_async_session_factory
+    # Setup AIOHTTP server for webhook mode
+    app = web.Application()
+    app["bot"] = bot
+    app["dp"] = dp
+    app["settings"] = settings_param
+    app["i18n"] = i18n_instance
+    app["async_session_factory"] = local_async_session_factory
 
-        app["yookassa_service"] = yookassa_service
-        app["subscription_service"] = subscription_service
-        app["referral_service"] = referral_service
-        app["panel_service"] = panel_service
-        app["stars_service"] = stars_service
-        app["cryptopay_service"] = cryptopay_service
-        app["tribute_service"] = tribute_service
-        app["panel_webhook_service"] = panel_webhook_service
+    app["yookassa_service"] = yookassa_service
+    app["subscription_service"] = subscription_service
+    app["referral_service"] = referral_service
+    app["panel_service"] = panel_service
+    app["stars_service"] = stars_service
+    app["cryptopay_service"] = cryptopay_service
+    app["tribute_service"] = tribute_service
+    app["panel_webhook_service"] = panel_webhook_service
 
-        setup_application(app, dp, bot=bot)
+    setup_application(app, dp, bot=bot)
 
-        if telegram_uses_webhook_mode:
-            telegram_webhook_path = f"/{settings_param.BOT_TOKEN}"
-            if not telegram_webhook_path.startswith("/"):
-                telegram_webhook_path = "/" + telegram_webhook_path
-            app.router.add_post(
-                telegram_webhook_path, SimpleRequestHandler(dispatcher=dp, bot=bot)
-            )
-            logging.info(
-                f"Telegram webhook route configured at: [POST] {telegram_webhook_path} (relative to base URL)"
-            )
-
-        if yk_webhook_base and settings_param.yookassa_webhook_path:
-            yk_path = settings_param.yookassa_webhook_path
-            if not yk_path or not isinstance(yk_path, str):
-                logging.error(
-                    f"YooKassa webhook path is invalid or not configured in settings: {yk_path}. Skipping YooKassa webhook setup."
-                )
-            elif not yk_path.startswith("/"):
-                logging.error(
-                    f"CRITICAL: YooKassa webhook path '{yk_path}' from settings does not start with '/'. Correct settings.py or .env. Skipping YooKassa webhook."
-                )
-            else:
-                app.router.add_post(
-                    yk_path, user_payment_webhook_module.yookassa_webhook_route
-                )
-                logging.info(f"YooKassa webhook route configured at: [POST] {yk_path}")
-
-        tribute_path = settings_param.tribute_webhook_path
-        if tribute_path.startswith("/"):
-            app.router.add_post(tribute_path, tribute_webhook_route)
-            logging.info(f"Tribute webhook route configured at: [POST] {tribute_path}")
-
-        cp_path = settings_param.cryptopay_webhook_path
-        if cp_path.startswith("/"):
-            app.router.add_post(cp_path, cryptopay_webhook_route)
-            logging.info(f"CryptoPay webhook route configured at: [POST] {cp_path}")
-
-        panel_path = settings_param.panel_webhook_path
-        if panel_path.startswith("/"):
-            app.router.add_post(panel_path, panel_webhook_route)
-            logging.info(f"Panel webhook route configured at: [POST] {panel_path}")
-
-        web_app_runner = web.AppRunner(app)
-        await web_app_runner.setup()
-        site = web.TCPSite(
-            web_app_runner,
-            host=settings_param.WEB_SERVER_HOST,
-            port=settings_param.WEB_SERVER_PORT,
-        )
-
-        async def web_server_task():
-            await site.start()
-            logging.info(
-                f"AIOHTTP server started on http://{settings_param.WEB_SERVER_HOST}:{settings_param.WEB_SERVER_PORT}"
-            )
-            (
-                await asyncio.Event().wait()
-                if not run_telegram_polling
-                else await asyncio.sleep(31536000)
-            )
-
-        main_tasks.append(
-            asyncio.create_task(web_server_task(), name="AIOHTTPServerTask")
-        )
-
-    if run_telegram_polling:
-        logging.info("Starting bot in Telegram Polling mode...")
-        main_tasks.append(
-            asyncio.create_task(
-                dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types()),
-                name="TelegramPollingTask",
-            )
-        )
-
-    if not main_tasks:
-        logging.error(
-            "Bot is not configured for any run mode (neither Webhook nor Polling). Exiting."
-        )
-        await dp.emit_shutdown()
-        return
-
-    logging.info(
-        f"Starting bot with main tasks: {[task.get_name() for task in main_tasks]}"
+    # Setup Telegram webhook
+    telegram_webhook_path = f"/{settings_param.BOT_TOKEN}"
+    if not telegram_webhook_path.startswith("/"):
+        telegram_webhook_path = "/" + telegram_webhook_path
+    app.router.add_post(
+        telegram_webhook_path, SimpleRequestHandler(dispatcher=dp, bot=bot)
     )
+    logging.info(
+        f"Telegram webhook route configured at: [POST] {telegram_webhook_path} (relative to base URL)"
+    )
+
+    # Setup YooKassa webhook if configured
+    if settings_param.yookassa_webhook_path:
+        yk_path = settings_param.yookassa_webhook_path
+        if yk_path.startswith("/"):
+            app.router.add_post(
+                yk_path, user_payment_webhook_module.yookassa_webhook_route
+            )
+            logging.info(f"YooKassa webhook route configured at: [POST] {yk_path}")
+
+    # Setup other webhook routes
+    tribute_path = settings_param.tribute_webhook_path
+    if tribute_path.startswith("/"):
+        app.router.add_post(tribute_path, tribute_webhook_route)
+        logging.info(f"Tribute webhook route configured at: [POST] {tribute_path}")
+
+    cp_path = settings_param.cryptopay_webhook_path
+    if cp_path.startswith("/"):
+        app.router.add_post(cp_path, cryptopay_webhook_route)
+        logging.info(f"CryptoPay webhook route configured at: [POST] {cp_path}")
+
+    panel_path = settings_param.panel_webhook_path
+    if panel_path.startswith("/"):
+        app.router.add_post(panel_path, panel_webhook_route)
+        logging.info(f"Panel webhook route configured at: [POST] {panel_path}")
+
+    web_app_runner = web.AppRunner(app)
+    await web_app_runner.setup()
+    site = web.TCPSite(
+        web_app_runner,
+        host=settings_param.WEB_SERVER_HOST,
+        port=settings_param.WEB_SERVER_PORT,
+    )
+
+    async def web_server_task():
+        await site.start()
+        logging.info(
+            f"AIOHTTP server started on http://{settings_param.WEB_SERVER_HOST}:{settings_param.WEB_SERVER_PORT}"
+        )
+        await asyncio.Event().wait()  # Wait indefinitely
+
+    main_tasks.append(asyncio.create_task(web_server_task(), name="AIOHTTPServerTask"))
+
+    logging.info("Starting bot in Webhook mode with AIOHTTP server...")
+    logging.info(f"Starting bot with main tasks: {[task.get_name() for task in main_tasks]}")
 
     try:
         await asyncio.gather(*main_tasks)

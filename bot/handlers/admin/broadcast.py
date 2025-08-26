@@ -19,6 +19,7 @@ from bot.keyboards.inline.admin_keyboards import (
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.utils.message_queue import get_queue_manager
+from bot.utils import get_message_content, send_message_by_type, send_message_via_queue, MessageContent
 
 router = Router(name="admin_broadcast_router")
 
@@ -76,30 +77,34 @@ async def process_broadcast_message_handler(
 
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    # Сохраняем в state исходный текст и entities
-    text = (message.text or message.caption or "").strip()
+    # Определяем тип содержимого и сохраняем данные в state
     entities = message.entities or message.caption_entities or []
+    content = get_message_content(message)
 
-    # Если текст пустой (например, прислали стикер/фото без подписи) — просим ввести текст
-    if not text:
+    # Если нет ни текста, ни медиа — ошибка
+    if not content.text and not content.file_id:
         await message.answer(_("admin_broadcast_error_no_message"))
         return
 
-    # Предварительная проверка HTML: попробуем отправить и сразу удалить
-    # Если HTML некорректный, Telegram вернёт ошибку парсинга
+    # Сохраняем данные для рассылки
+    await state.update_data(
+        broadcast_text=content.text,
+        broadcast_entities=entities,
+        broadcast_content_type=content.content_type,
+        broadcast_file_id=content.file_id,
+        broadcast_target="all",
+    )
+
+    # Отправляем превью-копию того, что будет разослано
     try:
-        test_msg = await bot.send_message(
-            chat_id=message.chat.id,
-            text=text,
+        await send_message_by_type(
+            bot, 
+            chat_id=message.chat.id, 
+            content=content,
             parse_mode="HTML",
             disable_web_page_preview=True,
             disable_notification=True,
         )
-        # Удалим тестовое сообщение
-        try:
-            await bot.delete_message(chat_id=message.chat.id, message_id=test_msg.message_id)
-        except Exception:
-            pass
     except TelegramBadRequest as e:
         await message.answer(
             _(
@@ -110,18 +115,53 @@ async def process_broadcast_message_handler(
         )
         return
 
-    await state.update_data(
-        broadcast_text=text,
-        broadcast_entities=entities,
-    )
-
-    confirmation_prompt = _("admin_broadcast_confirm_prompt", message_preview=text)
+    # Показываем короткое подтверждение без дублирования текста — сообщение выше служит превью
+    confirmation_prompt = _("admin_broadcast_confirm_prompt_short")
 
     await message.answer(
         confirmation_prompt,
         reply_markup=get_broadcast_confirmation_keyboard(current_lang, i18n),
     )
     await state.set_state(AdminStates.confirming_broadcast)
+
+
+@router.callback_query(
+    F.data.startswith("broadcast_target:"),
+    AdminStates.confirming_broadcast,
+)
+async def change_broadcast_target_handler(
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    i18n_data: dict,
+    settings: Settings,
+):
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    if not i18n or not callback.message:
+        await callback.answer("Error updating selection.", show_alert=True)
+        return
+
+    new_target = callback.data.split(":")[1]
+    if new_target not in {"all", "active", "inactive"}:
+        await callback.answer("Unknown target.", show_alert=True)
+        return
+
+    await state.update_data(broadcast_target=new_target)
+    user_fsm_data = await state.get_data()
+    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
+    confirmation_prompt = _(
+        "admin_broadcast_confirm_prompt_short"
+    )
+    try:
+        await callback.message.edit_text(
+            confirmation_prompt,
+            reply_markup=get_broadcast_confirmation_keyboard(
+                current_lang, i18n
+            ),
+        )
+    except Exception:
+        pass
+    await callback.answer()
 
 
 @router.callback_query(
@@ -180,10 +220,15 @@ async def confirm_broadcast_callback_handler(
     user_fsm_data = await state.get_data()
 
     if action == "send":
-        text = user_fsm_data.get("broadcast_text")
+        # Создаем объект контента из сохраненных данных
+        content = MessageContent(
+            content_type=user_fsm_data.get("broadcast_content_type", "text"),
+            file_id=user_fsm_data.get("broadcast_file_id"),
+            text=user_fsm_data.get("broadcast_text")
+        )
         entities = user_fsm_data.get("broadcast_entities", [])
-
-        if not text:
+        
+        if not content.text and content.content_type == "text":
             await callback.message.edit_text(_("admin_broadcast_error_no_message"))
             await state.clear()
             await callback.answer(
@@ -194,13 +239,19 @@ async def confirm_broadcast_callback_handler(
         await callback.message.edit_text(_("admin_broadcast_sending_started"), reply_markup=None)
         await callback.answer()
 
-        user_ids = await user_dal.get_all_active_user_ids_for_broadcast(session)
+        target = user_fsm_data.get("broadcast_target", "all")
+        if target == "active":
+            user_ids = await user_dal.get_user_ids_with_active_subscription(session)
+        elif target == "inactive":
+            user_ids = await user_dal.get_user_ids_without_active_subscription(session)
+        else:
+            user_ids = await user_dal.get_all_active_user_ids_for_broadcast(session)
 
         sent_count = 0
         failed_count = 0
         admin_user = callback.from_user
         logging.info(
-            f"Admin {admin_user.id} broadcasting '{text[:50]}...' to {len(user_ids)} users."
+            f"Admin {admin_user.id} broadcasting '{(content.text or '')[:50]}...' to {len(user_ids)} users."
         )
 
         # Get message queue manager
@@ -212,9 +263,10 @@ async def confirm_broadcast_callback_handler(
         # Queue all messages for sending
         for uid in user_ids:
             try:
-                await queue_manager.send_message(
-                    chat_id=uid,
-                    text=text,
+                await send_message_via_queue(
+                    queue_manager, 
+                    uid, 
+                    content,
                     parse_mode="HTML",
                     disable_web_page_preview=True,
                 )
@@ -228,7 +280,7 @@ async def confirm_broadcast_callback_handler(
                         "telegram_username": admin_user.username,
                         "telegram_first_name": admin_user.first_name,
                         "event_type": "admin_broadcast_queued",
-                        "content": f"To user {uid}: {text[:70]}...",
+                        "content": f"To user {uid}: [{content.content_type}] {(content.text or '')[:70]}...",
                         "is_admin_event": True,
                         "target_user_id": uid,
                     },
