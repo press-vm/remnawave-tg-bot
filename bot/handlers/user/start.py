@@ -168,21 +168,21 @@ async def start_command_handler(message: types.Message,
             db_user, created = await user_dal.create_user(session, user_data_to_create)
 
             if created:
-            logging.info(
+                logging.info(
                     f"New user {user_id} added to session. Referred by: {referred_by_user_id or 'N/A'}."
                 )
 
                 # Send notification about new user registration
-            try:
-                from bot.services.notification_service import NotificationService
-                notification_service = NotificationService(message.bot, settings, i18n)
-            await notification_service.notify_new_user_registration(
-                user_id=user_id,
-                username=user.username,
-                first_name=user.first_name,
-                    referred_by_id=referred_by_user_id
+                try:
+                    from bot.services.notification_service import NotificationService
+                    notification_service = NotificationService(message.bot, settings, i18n)
+                    await notification_service.notify_new_user_registration(
+                        user_id=user_id,
+                        username=user.username,
+                        first_name=user.first_name,
+                        referred_by_id=referred_by_user_id
                     )
-            except Exception as e:
+                except Exception as e:
                     logging.error(f"Failed to send new user notification: {e}")
         except Exception as e_create:
 
