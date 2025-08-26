@@ -165,8 +165,7 @@
   "admin_broadcast_cancelled": "Broadcast cancelled.",
   "admin_broadcast_cancelled_alert": "Broadcast cancelled!",
   "admin_broadcast_cancelled_nav_back": "Broadcast cancelled. You are returned to the admin panel.",
-
-  "admin_broadcast_invalid_html": "❌ Invalid HTML in message. Please send valid HTML (Telegram-supported tags) or remove tags.",
+  "admin_broadcast_invalid_html": "❌ Invalid HTML in message. Please send valid HTML (Telegram-supported tags) or remove tags.\nError: {error}",
 
   "admin_promo_create_prompt": "Enter promo details in the format: CODE BONUS_DAYS MAX_USES [VALIDITY_DAYS]\nExample: <code>{example_format}</code>\n(Validity is optional; default is indefinite)",
   "admin_promo_invalid_format": "Invalid format. Please use: CODE BONUS_DAYS MAX_USES [VALIDITY_DAYS]",
@@ -177,7 +176,7 @@
   "admin_promo_invalid_validity_days": "Validity period (in days) must be a positive number.",
   "admin_promo_invalid_values": "Invalid values. {error}",
   "admin_promo_invalid_format_general": "Promo parsing error. Check the format.",
-  "admin_promo_created_success": "✅ Promo code <code>{code}</code> created successfully!\nBonus: {bonus_days} days\nMax uses: {max_activations}\nValid until: {valid_until_str}.",
+  "admin_promo_created_success": "✅ Promo code <code>{code}</code> created successfully!\nBonus: {bonus_days} days\nMax uses: {max_activations}\nValid until: {valid_until_str}",
   "admin_promo_creation_failed_duplicate": "❌ Error: Promo code <code>{code}</code> already exists.",
   "admin_promo_creation_failed": "❌ Failed to create promo code. Please try again later.",
   "admin_active_promos_list_header": "Active Promo Codes:",
@@ -274,11 +273,20 @@
   "tribute_subscription_cancelled": "🚨 <b>Subscription Cancelled</b>\n\nYour Tribute subscription has been cancelled. You have 24 hours to restore access, after which the subscription will be blocked.\n\nTo renew your subscription, press the button below.",
   "tribute_auto_renewal": "🔄 <b>Subscription Auto-Renewed</b>\n\nYour Tribute subscription has been automatically renewed for {months} months.\nNew expiration date: {end_date}",
 
-  "admin_new_trial_notification": "\ud83c\udf21 User {user_id} activated a free trial until {end_date}.",
-
-  "admin_promo_activation_notification": "\ud83c\udf81 Promo code {code} activated by user {user_id} (+{bonus_days}d).",
+  "admin_new_trial_notification": "🆓 User {user_id} activated a free trial until {end_date}.",
+  "admin_promo_activation_notification": "🎁 Promo code {code} activated by user {user_id} (+{bonus_days}d).",
 
   "error_unknown": "An unknown error occurred.",
+  
+  "support_dialog_info": "💬 <b>Technical Support</b>\n\n📝 Describe your problem or ask a question - our specialists will respond as soon as possible.\n\n⏰ Working hours: 09:00 - 21:00 (MSK)\n📞 Average response time: up to 2 hours",
+  "start_support_dialog": "💬 Start dialog",
+  "support_dialog_started": "💬 Technical support dialog started!\n\n📝 Now all your messages will be forwarded to support specialists. Describe your problem or ask a question.\n\n⏰ We will respond as soon as possible during working hours (09:00 - 21:00 MSK).",
+  "support_dialog_started_alert": "Dialog started! Write your question.",
+  "support_end_dialog": "❌ End dialog",
+  "support_dialog_ended": "✅ Support dialog ended.\n\nThank you for contacting us! If you have new questions, press the 'Support' button in the main menu.",
+  "support_dialog_ended_alert": "Dialog ended",
+  "support_dialog_not_active": "❌ Support dialog is not active. Press the 'Support' button in the main menu to start.",
+  "support_message_received": "✅ Your message has been received! Support specialists will respond as soon as possible.",
   
   "admin_user_management_prompt": "👤 User Management\n\nEnter user ID or @username to search:",
   "admin_user_card_title": "User Card",
@@ -407,7 +415,7 @@
   "admin_promo_unlimited_validity": "♾️ Unlimited",
   "admin_promo_set_validity": "⏰ Set Period",
   "admin_promo_enter_validity_days": "⏰ Enter the number of validity days for the promo code (1-365):",
-  "admin_promo_skip_description": "⏭️ Skip",
+  "admin_promo_skip_description": "⭐ Skip",
   "admin_promo_description_too_long": "❌ Description must not exceed 200 characters",
   "admin_promo_creating": "⏳ Creating promo code...",
   
@@ -417,7 +425,7 @@
   "admin_user_id_label": "🆔 <b>ID:</b>",
   "admin_user_name_label": "👤 <b>Name:</b>",
   "admin_user_username_label": "📱 <b>Username:</b>",
-  "admin_user_language_label": "🌍 <b>Language:</b>",
+  "admin_user_language_label": "🌐 <b>Language:</b>",
   "admin_user_registration_label": "📅 <b>Registration:</b>",
   "admin_user_status_label": "🛡 <b>Status:</b>",
   "admin_user_referral_label": "🎁 <b>Referred by:</b>",
@@ -450,7 +458,7 @@
   
   "admin_promo_management_button": "🎟 Promo Management",
   "admin_promo_management_title": "🎟 <b>Promo Code Management</b>\n\nSelect a promo code for detailed view:",
-  "admin_promo_management_empty": "📭 No promo codes available",
+  "admin_promo_management_empty": "🔭 No promo codes available",
   "admin_promo_card_title": "🎟 <b>Promo Code: {code}</b>",
   "admin_promo_card_bonus_days": "🎁 Bonus days: <b>{days}</b>",
   "admin_promo_card_activations": "🔢 Activations: <b>{current}/{max}</b>",
@@ -510,10 +518,18 @@
   "admin_user_stats_trial_label": "On trial period",
   "admin_user_stats_inactive_label": "Inactive",
   "admin_user_stats_banned_label": "Banned",
-  "admin_user_stats_referral_label": "Attracted via referral program",
+  "admin_user_stats_referral_label": "Via referral program",
   "admin_financial_today_label": "Today",
   "admin_financial_week_label": "This week",
   "admin_financial_month_label": "This month",
   "admin_financial_all_time_label": "All time",
-  "admin_financial_payments_label": "payments"
-}
+  "admin_financial_payments_label": "payments",
+  "admin_update_all_names_button": "🔄 Update Names",
+  "admin_users_list_button": "📋 All Users List",
+  "admin_users_list_title": "📋 Users List (page {page}/{total}):",
+  "admin_users_list_empty": "No users found",
+  "admin_direct_empty_message": "❌ Empty message. Send text or media.",
+  "admin_new_user_notification": "🎉 New user registered!\n\n{user_info}",
+  "admin_new_subscription_notification": "💳 New subscription!\n\n🆔 User: {user_id}\n📅 Duration: {duration} mo.\n💰 Amount: {amount}\n📦 Type: {type}",
+  "admin_payment_received_notification": "💳 Payment received!\n\n👤 User: {user_display}\n💰 Amount: {amount} {currency}\n📅 Period: {months} mo.\n🏦 Provider: {provider}",
+  "admin_trial_activation_notification": "🆓 User {user_display} activated free trial until {end_date}."
