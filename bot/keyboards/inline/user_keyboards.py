@@ -63,12 +63,6 @@ def get_main_menu_inline_keyboard(
         InlineKeyboardButton(text=_(key="menu_support_button"),
                              callback_data="main_action:support"))
 
-    # Внешняя ссылка на поддержку (если настроена)
-    if settings.SUPPORT_LINK:
-        builder.row(
-            InlineKeyboardButton(text="📞 Внешняя поддержка",
-                                 url=settings.SUPPORT_LINK))
-
     if settings.TERMS_OF_SERVICE_URL:
         builder.row(
             InlineKeyboardButton(text=_(key="menu_terms_button"),
