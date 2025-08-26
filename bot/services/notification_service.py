@@ -1,5 +1,6 @@
 import logging
 from typing import Optional
+from datetime import datetime
 from aiogram import Bot
 from config.settings import Settings
 from bot.middlewares.i18n import JsonI18n
@@ -78,3 +79,107 @@ class NotificationService:
                 await self.bot.send_message(admin_id, notification_text)
             except Exception as e:
                 logging.error(f"Failed to send subscription notification to admin {admin_id}: {e}")
+
+    async def notify_payment_received(
+        self,
+        user_id: int,
+        amount: float,
+        currency: str,
+        months: int,
+        payment_provider: str,
+        username: Optional[str] = None,
+        first_name: Optional[str] = None
+    ) -> None:
+        """Send notification to admins about successful payment"""
+        if not self.settings.ADMIN_IDS:
+            return
+
+        admin_lang = self.settings.DEFAULT_LANGUAGE
+        _ = lambda key, **kwargs: self.i18n.gettext(admin_lang, key, **kwargs)
+
+        user_display = first_name or f"User {user_id}"
+        if username:
+            user_display += f" (@{username})"
+
+        notification_text = _(
+            "admin_payment_received_notification",
+            default="💳 Получен платеж!\n\n👤 Пользователь: {user_display}\n💰 Сумма: {amount} {currency}\n📅 Период: {months} мес.\n🏦 Провайдер: {provider}",
+            user_display=user_display,
+            amount=amount,
+            currency=currency,
+            months=months,
+            provider=payment_provider
+        )
+
+        # Send to all admins
+        for admin_id in self.settings.ADMIN_IDS:
+            try:
+                await self.bot.send_message(admin_id, notification_text)
+            except Exception as e:
+                logging.error(f"Failed to send payment notification to admin {admin_id}: {e}")
+
+    async def notify_trial_activation(
+        self,
+        user_id: int,
+        end_date: datetime,
+        username: Optional[str] = None,
+        first_name: Optional[str] = None
+    ) -> None:
+        """Send notification to admins about trial activation"""
+        if not self.settings.ADMIN_IDS:
+            return
+
+        admin_lang = self.settings.DEFAULT_LANGUAGE
+        _ = lambda key, **kwargs: self.i18n.gettext(admin_lang, key, **kwargs)
+
+        user_display = first_name or f"User {user_id}"
+        if username:
+            user_display += f" (@{username})"
+
+        notification_text = _(
+            "admin_trial_activation_notification",
+            default="🆓 Пользователь {user_display} активировал пробный период до {end_date}.",
+            user_display=user_display,
+            end_date=end_date.strftime("%d.%m.%Y %H:%M")
+        )
+
+        # Send to all admins
+        for admin_id in self.settings.ADMIN_IDS:
+            try:
+                await self.bot.send_message(admin_id, notification_text)
+            except Exception as e:
+                logging.error(f"Failed to send trial activation notification to admin {admin_id}: {e}")
+
+    async def notify_promo_activation(
+        self,
+        user_id: int,
+        promo_code: str,
+        bonus_days: int,
+        username: Optional[str] = None,
+        first_name: Optional[str] = None
+    ) -> None:
+        """Send notification to admins about promo code activation"""
+        if not self.settings.ADMIN_IDS:
+            return
+
+        admin_lang = self.settings.DEFAULT_LANGUAGE
+        _ = lambda key, **kwargs: self.i18n.gettext(admin_lang, key, **kwargs)
+
+        user_display = first_name or f"User {user_id}"
+        if username:
+            user_display += f" (@{username})"
+
+        notification_text = _(
+            "admin_promo_activation_notification",
+            default="🎁 Пользователь {user_display} активировал промокод {code} (+{bonus_days} дн.)",
+            user_display=user_display,
+            code=promo_code,
+            bonus_days=bonus_days
+        )
+
+        # Send to all admins
+        for admin_id in self.settings.ADMIN_IDS:
+            try:
+                await self.bot.send_message(admin_id, notification_text)
+            except Exception as e:
+                logging.error(f"Failed to send promo activation notification to admin {admin_id}: {e}")
