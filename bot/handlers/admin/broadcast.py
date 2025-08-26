@@ -120,7 +120,7 @@ async def process_broadcast_message_handler(
 
     await message.answer(
         confirmation_prompt,
-        reply_markup=get_broadcast_confirmation_keyboard(current_lang, i18n, target="all"),
+        reply_markup=get_broadcast_confirmation_keyboard(current_lang, i18n),
     )
     await state.set_state(AdminStates.confirming_broadcast)
 
@@ -156,7 +156,7 @@ async def change_broadcast_target_handler(
         await callback.message.edit_text(
             confirmation_prompt,
             reply_markup=get_broadcast_confirmation_keyboard(
-                current_lang, i18n, target=new_target
+                current_lang, i18n
             ),
         )
     except Exception:
