@@ -391,8 +391,35 @@ async def main_action_callback_handler(
     elif action == "request_trial":
         await user_trial_handlers.request_trial_confirmation_handler(
             callback, settings, i18n_data, subscription_service, session)
+    elif action == "support":
+        # Показываем информацию о поддержке и активируем режим диалога
+        current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+        i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+        _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
+        
+        support_text = _(
+            "support_dialog_info",
+            default="💬 <b>Техническая поддержка</b>\n\n📝 Опишите вашу проблему или задайте вопрос - наши специалисты ответят в ближайшее время.\n\n⏰ Время работы: 09:00 - 21:00 (МСК)\n📞 Среднее время ответа: до 2 часов\n\n💡 Для срочных вопросов: @pressvpnshop"
+        )
+        
+        from bot.keyboards.inline.user_keyboards import InlineKeyboardMarkup, InlineKeyboardButton
+        support_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text=_("start_support_dialog", default="💬 Начать диалог"),
+                callback_data="support:start_dialog"
+            )],
+            [InlineKeyboardButton(
+                text=_("back_to_main_menu_button"),
+                callback_data="main_action:back_to_main"
+            )]
+        ])
+        
+        try:
+            await callback.message.edit_text(support_text, reply_markup=support_keyboard, parse_mode="HTML")
+            await callback.answer()
+        except Exception:
+            await callback.message.answer(support_text, reply_markup=support_keyboard, parse_mode="HTML")
     elif action == "language":
-
         await language_command_handler(callback, i18n_data, settings)
     elif action == "back_to_main":
         await send_main_menu(callback,
