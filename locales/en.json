@@ -533,3 +533,4 @@
   "admin_new_subscription_notification": "💳 New subscription!\n\n🆔 User: {user_id}\n📅 Duration: {duration} mo.\n💰 Amount: {amount}\n📦 Type: {type}",
   "admin_payment_received_notification": "💳 Payment received!\n\n👤 User: {user_display}\n💰 Amount: {amount} {currency}\n📅 Period: {months} mo.\n🏦 Provider: {provider}",
   "admin_trial_activation_notification": "🆓 User {user_display} activated free trial until {end_date}."
+}
