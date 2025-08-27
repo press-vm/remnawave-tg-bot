@@ -391,9 +391,14 @@ async def show_users_list_handler(
     message_text = _("admin_users_list_title", page=page + 1, total=total_pages) + "\n\n"
     
     for user in page_users:
-        user_display = f"{user.first_name or 'Без имени'}"
+        # Экранируем специальные markdown символы
+        first_name = (user.first_name or 'Без имени').replace('_', '\\_').replace('*', '\\*').replace('`', '\\`')
+        username_part = ''
         if user.username:
-            user_display += f" (@{user.username})"
+            username_escaped = user.username.replace('_', '\\_').replace('*', '\\*').replace('`', '\\`')
+            username_part = f" (@{username_escaped})"
+        
+        user_display = f"{first_name}{username_part}"
         message_text += f"• `{user.user_id}` - {user_display}\n"
     
     message_text += "\n💡 _Нажмите на ID чтобы скопировать_"
