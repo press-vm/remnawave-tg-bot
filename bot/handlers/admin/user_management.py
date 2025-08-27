@@ -1,3 +1,4 @@
+import html
 import logging
 import re
 from aiogram import Router, F, types, Bot
@@ -42,26 +43,28 @@ async def user_management_menu_handler(callback: types.CallbackQuery,
     
     # Добавляем список последних пользователей
     if recent_users:
-        prompt_text += "\n\n📋 **Последние пользователи:**\n"
+        prompt_text += "\n\n📋 <b>Последние пользователи:</b>\n"
         for user in recent_users:
-            user_display = f"{user.first_name or 'Без имени'}"
+            # Безопасное экранирование для HTML
+            user_name = html.escape(user.first_name or 'Без имени')
+            username_display = ""
             if user.username:
-                user_display += f" (@{user.username})"
-            prompt_text += f"• `{user.user_id}` - {user_display}\n"
-        prompt_text += "\n💡 _Нажмите на ID чтобы скопировать_"
+                username_display = f" (@{html.escape(user.username)})"
+            prompt_text += f"• <code>{user.user_id}</code> - {user_name}{username_display}\n"
+        prompt_text += "\n💡 <i>Нажмите на ID чтобы скопировать</i>"
 
     try:
         await callback.message.edit_text(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
     except Exception as e:
         logging.warning(f"Could not edit message for user management: {e}. Sending new.")
         await callback.message.answer(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
     
     await callback.answer()
