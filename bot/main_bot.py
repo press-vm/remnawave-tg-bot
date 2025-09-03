@@ -20,6 +20,7 @@ from bot.middlewares.i18n import I18nMiddleware, get_i18n_instance, JsonI18n
 from bot.middlewares.db_session import DBSessionMiddleware
 from bot.middlewares.ban_check_middleware import BanCheckMiddleware
 from bot.middlewares.action_logger_middleware import ActionLoggerMiddleware
+from bot.middlewares.profile_sync import ProfileSyncMiddleware
 
 from bot.routers import build_root_router
 
@@ -296,6 +297,7 @@ async def run_bot(settings_param: Settings):
         settings_param,
         i18n_instance,
         local_async_session_factory,
+        panel_service,
     )
 
     dp["i18n_instance"] = i18n_instance
@@ -318,6 +320,7 @@ async def run_bot(settings_param: Settings):
         BanCheckMiddleware(settings=settings_param, i18n_instance=i18n_instance)
     )
     dp.update.outer_middleware(ActionLoggerMiddleware(settings=settings_param))
+    dp.update.outer_middleware(ProfileSyncMiddleware())
 
     dp.startup.register(on_startup_configured)
     dp.shutdown.register(on_shutdown_configured)
