@@ -72,8 +72,8 @@ async def request_trial_confirmation_handler(
     if activation_result and activation_result.get("activated"):
         try:
             await callback.answer(_("trial_activated_alert"), show_alert=True)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.error(f"Failed to send callback answer: {e}")
 
         end_date_obj = activation_result.get("end_date")
         config_link_for_trial = activation_result.get("subscription_url") or _(
@@ -113,8 +113,8 @@ async def request_trial_confirmation_handler(
         final_message_text_in_chat = _(message_key_from_service)
         try:
             await callback.answer(final_message_text_in_chat, show_alert=True)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.error(f"Failed to send callback answer: {e}")
         if (
             settings.TRIAL_ENABLED
             and not await subscription_service.has_had_any_subscription(
@@ -203,8 +203,8 @@ async def confirm_activate_trial_handler(
     if activation_result and activation_result.get("activated"):
         try:
             await callback.answer(_("trial_activated_alert"), show_alert=True)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.error(f"Failed to send callback answer: {e}")
 
         end_date_obj = activation_result.get("end_date")
         config_link_for_trial = activation_result.get("subscription_url") or _(
@@ -240,8 +240,8 @@ async def confirm_activate_trial_handler(
         final_message_text_in_chat = _(message_key_from_service)
         try:
             await callback.answer(final_message_text_in_chat, show_alert=True)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.error(f"Failed to send callback answer: {e}")
         if (
             settings.TRIAL_ENABLED
             and not await subscription_service.has_had_any_subscription(
