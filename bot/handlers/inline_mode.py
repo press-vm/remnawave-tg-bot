@@ -147,16 +147,21 @@ async def create_user_stats_result(session: AsyncSession, i18n_instance, lang: s
         from db.dal.user_dal import get_enhanced_user_statistics
         user_stats = await get_enhanced_user_statistics(session)
         
+        # Get active users today count
+        today_active = user_stats.get('active_users_today', 0)
+        
         stats_text = _(
             "inline_user_stats_message",
             default="📊 <b>Статистика Бота</b>\n👥 Пользователи\n\n"
                    "📊 Всего: <b>{total}</b>\n"
+                   "🟢 Активных сегодня: <b>{today_active}</b>\n"
                    "💳 С платной подпиской: <b>{paid}</b>\n"
                    "🆓 На пробном периоде: <b>{trial}</b>\n"
                    "😴 Неактивных: <b>{inactive}</b>\n"
                    "🚫 Заблокированных: <b>{banned}</b>\n"
                    "🎁 Привлечено по реферальной программе: <b>{referral}</b>",
             total=user_stats['total_users'],
+            today_active=today_active,
             paid=user_stats['paid_subscriptions'],
             trial=user_stats['trial_users'],
             inactive=user_stats['inactive_users'],
