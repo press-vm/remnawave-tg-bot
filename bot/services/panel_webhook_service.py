@@ -8,6 +8,7 @@ from aiogram.types import InlineKeyboardMarkup
 from sqlalchemy.orm import sessionmaker
 from typing import Optional
 from config.settings import Settings
+from .panel_api_service import PanelApiService
 from bot.middlewares.i18n import JsonI18n
 from bot.keyboards.inline.user_keyboards import get_subscribe_only_markup
 from db.dal import user_dal
@@ -20,7 +21,7 @@ EVENT_MAP = {
 }
 
 class PanelWebhookService:
-    def __init__(self, bot: Bot, settings: Settings, i18n: JsonI18n, async_session_factory: sessionmaker, panel_service: Optional['PanelApiService'] = None):
+    def __init__(self, bot: Bot, settings: Settings, i18n: JsonI18n, async_session_factory: sessionmaker, panel_service: PanelApiService):
         self.bot = bot
         self.settings = settings
         self.i18n = i18n
@@ -85,21 +86,20 @@ class PanelWebhookService:
                     )
                     # Update panel expiry to ensure actual service access is extended
                     try:
-                        if self.panel_service:
-                            panel_payload = {
-                                "uuid": sub.panel_user_uuid,
-                                "expireAt": new_end_date.isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
-                                "status": "ACTIVE",
-                            }
-                            panel_update_resp = await self.panel_service.update_user_details_on_panel(
-                                sub.panel_user_uuid,
-                                panel_payload,
-                                log_response=True,
+                        panel_payload = {
+                            "uuid": sub.panel_user_uuid,
+                            "expireAt": new_end_date.isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
+                            "status": "ACTIVE",
+                        }
+                        panel_update_resp = await self.panel_service.update_user_details_on_panel(
+                            sub.panel_user_uuid,
+                            panel_payload,
+                            log_response=True,
+                        )
+                        if panel_update_resp:
+                            logging.info(
+                                f"Panel expiry updated for user {user_id} (panel_uuid {sub.panel_user_uuid}) to {new_end_date}"
                             )
-                            if panel_update_resp:
-                                logging.info(
-                                    f"Panel expiry updated for user {user_id} (panel_uuid {sub.panel_user_uuid}) to {new_end_date}"
-                                )
                     except Exception as e_panel:
                         logging.error(
                             f"Failed to update panel expiry for user {user_id} (panel_uuid {sub.panel_user_uuid}): {e_panel}")
@@ -158,6 +158,26 @@ class PanelWebhookService:
                     except Exception as e:
                         logging.error(f"Failed to send auto-renewal notification to user {user_id}: {e}")
                         
+                    # Optional: Sync description after renewal (if profile changed, but usually not needed)
+                    db_user = await user_dal.get_user_by_id(session, user_id)
+                    if db_user and db_user.panel_user_uuid:
+                        full_name = f"{db_user.first_name or ''} {db_user.last_name or ''}".strip()
+                        description = ""
+                        if full_name:
+                            description = full_name
+                            if db_user.username:
+                                description += f" (@{db_user.username})"
+                        elif db_user.username:
+                            description = f"@{db_user.username}"
+                        else:
+                            description = f"Telegram ID: {user_id}"
+                        
+                        await self.panel_service.update_user_details_on_panel(
+                            db_user.panel_user_uuid,
+                            {"description": description}
+                        )
+                        logging.info(f"Synced description after auto-renewal for user {user_id}")
+            
             await session.commit()
             return auto_renewed
             
@@ -257,5 +277,5 @@ class PanelWebhookService:
 async def panel_webhook_route(request: web.Request):
     service: PanelWebhookService = request.app["panel_webhook_service"]
     raw = await request.read()
-    signature_header = request.headers.get("X-Remnawave-Signature")
-    return await service.handle_webhook(raw, signature_header)
+    signature = request.headers.get("X-Remnawave-Signature")
+    return await service.handle_webhook(raw, signature)
