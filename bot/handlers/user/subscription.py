@@ -22,6 +22,14 @@ from bot.middlewares.i18n import JsonI18n
 router = Router(name="user_subscription_router")
 
 
+async def safe_callback_answer(callback: types.CallbackQuery, text: str = None, show_alert: bool = False):
+    """Безопасное выполнение callback.answer() с обработкой ошибок"""
+    try:
+        await callback.answer(text, show_alert=show_alert)
+    except Exception as e:
+        logging.error(f"Failed to answer callback from user {callback.from_user.id}: {e}")
+
+
 async def display_subscription_options(event: Union[types.Message,
                                                     types.CallbackQuery],
                                        i18n_data: dict, settings: Settings,
@@ -35,10 +43,7 @@ async def display_subscription_options(event: Union[types.Message,
     if not i18n:
         err_msg = "Language service error."
         if isinstance(event, types.CallbackQuery):
-            try:
-                await event.answer(err_msg, show_alert=True)
-            except Exception:
-                pass
+            await safe_callback_answer(event, err_msg, show_alert=True)
         elif isinstance(event, types.Message):
             await event.answer(err_msg)
         return
@@ -57,27 +62,28 @@ async def display_subscription_options(event: Union[types.Message,
         event, types.CallbackQuery) else event
     if not target_message_obj:
         if isinstance(event, types.CallbackQuery):
-            try:
-                await event.answer(get_text("error_occurred_try_again"),
-                                   show_alert=True)
-            except Exception:
-                pass
+            await safe_callback_answer(event, get_text("error_occurred_try_again"), show_alert=True)
         return
 
     if isinstance(event, types.CallbackQuery):
         try:
             await target_message_obj.edit_text(text_content,
                                                reply_markup=reply_markup)
-        except Exception:
+        except Exception as e:
+            logging.warning(f"Failed to edit subscription options message: {e}")
+            try:
+                await target_message_obj.answer(text_content,
+                                                reply_markup=reply_markup)
+            except Exception as e_send:
+                logging.error(f"Failed to send new subscription options message: {e_send}")
+        
+        await safe_callback_answer(event)
+    else:
+        try:
             await target_message_obj.answer(text_content,
                                             reply_markup=reply_markup)
-        try:
-            await event.answer()
-        except Exception:
-            pass
-    else:
-        await target_message_obj.answer(text_content,
-                                        reply_markup=reply_markup)
+        except Exception as e:
+            logging.error(f"Failed to send subscription options message: {e}")
 
 
 @router.callback_query(F.data.startswith("subscribe_period:"))
@@ -90,11 +96,7 @@ async def select_subscription_period_callback_handler(
                                                   ) if i18n else key
 
     if not i18n or not callback.message:
-        try:
-            await callback.answer(get_text("error_occurred_try_again"),
-                                  show_alert=True)
-        except Exception:
-            pass
+        await safe_callback_answer(callback, get_text("error_occurred_try_again"), show_alert=True)
         return
 
     try:
@@ -102,10 +104,7 @@ async def select_subscription_period_callback_handler(
     except (ValueError, IndexError):
         logging.error(
             f"Invalid subscription period in callback_data: {callback.data}")
-        try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
+        await safe_callback_answer(callback, get_text("error_try_again"), show_alert=True)
         return
 
     price_rub = settings.subscription_options.get(months)
@@ -113,10 +112,7 @@ async def select_subscription_period_callback_handler(
         logging.error(
             f"Price not found for {months} months subscription period in settings.subscription_options."
         )
-        try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
+        await safe_callback_answer(callback, get_text("error_try_again"), show_alert=True)
         return
 
     currency_symbol_val = settings.DEFAULT_CURRENCY_SYMBOL
@@ -141,12 +137,13 @@ async def select_subscription_period_callback_handler(
         logging.warning(
             f"Edit message for payment method selection failed: {e_edit}. Sending new one."
         )
-        await callback.message.answer(text_content,
-                                      reply_markup=reply_markup)
-    try:
-        await callback.answer()
-    except Exception:
-        pass
+        try:
+            await callback.message.answer(text_content,
+                                          reply_markup=reply_markup)
+        except Exception as e_send:
+            logging.error(f"Failed to send payment method selection message: {e_send}")
+    
+    await safe_callback_answer(callback)
 
 
 @router.callback_query(F.data.startswith("pay_stars:"))
@@ -159,10 +156,7 @@ async def pay_stars_callback_handler(
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if not i18n or not callback.message:
-        try:
-            await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
-        except Exception:
-            pass
+        await safe_callback_answer(callback, get_text("error_occurred_try_again"), show_alert=True)
         return
 
     try:
@@ -172,29 +166,28 @@ async def pay_stars_callback_handler(
         stars_price = int(price_str)
     except (ValueError, IndexError):
         logging.error(f"Invalid pay_stars data in callback: {callback.data}")
-        try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
+        await safe_callback_answer(callback, get_text("error_try_again"), show_alert=True)
         return
 
     user_id = callback.from_user.id
     payment_description = get_text("payment_description_subscription", months=months)
 
-    payment_id = await stars_service.create_invoice(
-        session, user_id, months, stars_price, payment_description)
-    if payment_id is None:
-        await callback.message.edit_text(get_text("error_payment_gateway"))
-        try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
+    try:
+        payment_id = await stars_service.create_invoice(
+            session, user_id, months, stars_price, payment_description)
+        if payment_id is None:
+            try:
+                await callback.message.edit_text(get_text("error_payment_gateway"))
+            except Exception as e:
+                logging.error(f"Failed to edit message with payment gateway error: {e}")
+            await safe_callback_answer(callback, get_text("error_try_again"), show_alert=True)
+            return
+    except Exception as e:
+        logging.error(f"Error creating Stars invoice for user {user_id}: {e}")
+        await safe_callback_answer(callback, get_text("error_payment_gateway"), show_alert=True)
         return
 
-    try:
-        await callback.answer()
-    except Exception:
-        pass
+    await safe_callback_answer(callback)
 
 
 @router.callback_query(F.data.startswith("pay_yk:"))
@@ -208,23 +201,16 @@ async def pay_yk_callback_handler(
                                                   ) if i18n else key
 
     if not i18n or not callback.message:
-        try:
-            await callback.answer(get_text("error_occurred_try_again"),
-                                  show_alert=True)
-        except Exception:
-            pass
+        await safe_callback_answer(callback, get_text("error_occurred_try_again"), show_alert=True)
         return
 
     if not yookassa_service or not yookassa_service.configured:
         logging.error("YooKassa service is not configured or unavailable.")
-        target_msg_edit = callback.message
-        await target_msg_edit.edit_text(get_text("payment_service_unavailable")
-                                        )
         try:
-            await callback.answer(get_text("payment_service_unavailable_alert"),
-                                  show_alert=True)
-        except Exception:
-            pass
+            await callback.message.edit_text(get_text("payment_service_unavailable"))
+        except Exception as e:
+            logging.error(f"Failed to edit message with service unavailable: {e}")
+        await safe_callback_answer(callback, get_text("payment_service_unavailable_alert"), show_alert=True)
         return
 
     try:
@@ -235,10 +221,7 @@ async def pay_yk_callback_handler(
     except (ValueError, IndexError):
         logging.error(
             f"Invalid pay_yk data in callback: {callback.data}")
-        try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
+        await safe_callback_answer(callback, get_text("error_try_again"), show_alert=True)
         return
 
     user_id = callback.from_user.id
@@ -265,21 +248,21 @@ async def pay_yk_callback_handler(
         logging.error(
             f"Failed to create payment record in DB for user {user_id}: {e_db_payment}",
             exc_info=True)
-        await callback.message.edit_text(
-            get_text("error_creating_payment_record"))
         try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
+            await callback.message.edit_text(
+                get_text("error_creating_payment_record"))
+        except Exception as e:
+            logging.error(f"Failed to edit message with payment record error: {e}")
+        await safe_callback_answer(callback, get_text("error_try_again"), show_alert=True)
         return
 
     if not db_payment_record:
-        await callback.message.edit_text(
-            get_text("error_creating_payment_record"))
         try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
+            await callback.message.edit_text(
+                get_text("error_creating_payment_record"))
+        except Exception as e:
+            logging.error(f"Failed to edit message with payment record error: {e}")
+        await safe_callback_answer(callback, get_text("error_try_again"), show_alert=True)
         return
 
     yookassa_metadata = {
@@ -289,13 +272,22 @@ async def pay_yk_callback_handler(
     }
     receipt_email_for_yk = settings.YOOKASSA_DEFAULT_RECEIPT_EMAIL
 
-    payment_response_yk = await yookassa_service.create_payment(
-        amount=price_rub,
-        currency=currency_code_for_yk,
-        # Не передаём description - будет использована случайная безопасная формулировка
-        metadata=yookassa_metadata,
-        receipt_email=receipt_email_for_yk
-    )
+    try:
+        payment_response_yk = await yookassa_service.create_payment(
+            amount=price_rub,
+            currency=currency_code_for_yk,
+            # Не передаём description - будет использована случайная безопасная формулировка
+            metadata=yookassa_metadata,
+            receipt_email=receipt_email_for_yk
+        )
+    except Exception as e:
+        logging.error(f"Error creating YooKassa payment for user {user_id}: {e}")
+        try:
+            await callback.message.edit_text(get_text("error_payment_gateway"))
+        except Exception as e_edit:
+            logging.error(f"Failed to edit message with payment gateway error: {e_edit}")
+        await safe_callback_answer(callback, get_text("error_try_again"), show_alert=True)
+        return
 
     if payment_response_yk and payment_response_yk.get("confirmation_url"):
         try:
@@ -310,19 +302,22 @@ async def pay_yk_callback_handler(
             logging.error(
                 f"Failed to update payment record {db_payment_record.payment_id} with YK ID: {e_db_update_ykid}",
                 exc_info=True)
-            await callback.message.edit_text(
-                get_text("error_payment_gateway_link_failed"))
             try:
-                await callback.answer(get_text("error_try_again"), show_alert=True)
-            except Exception:
-                pass
+                await callback.message.edit_text(
+                    get_text("error_payment_gateway_link_failed"))
+            except Exception as e:
+                logging.error(f"Failed to edit message with gateway link error: {e}")
+            await safe_callback_answer(callback, get_text("error_try_again"), show_alert=True)
             return
 
-        await callback.message.edit_text(
-            get_text(key="payment_link_message", months=months),
-            reply_markup=get_payment_url_keyboard(
-                payment_response_yk["confirmation_url"], current_lang, i18n),
-            disable_web_page_preview=False)
+        try:
+            await callback.message.edit_text(
+                get_text(key="payment_link_message", months=months),
+                reply_markup=get_payment_url_keyboard(
+                    payment_response_yk["confirmation_url"], current_lang, i18n),
+                disable_web_page_preview=False)
+        except Exception as e:
+            logging.error(f"Failed to edit message with payment link: {e}")
     else:
         try:
             await payment_dal.update_payment_status_by_db_id(
@@ -337,12 +332,12 @@ async def pay_yk_callback_handler(
         logging.error(
             f"Failed to create payment in YooKassa for user {user_id}, payment_db_id {db_payment_record.payment_id}. Response: {payment_response_yk}"
         )
-        await callback.message.edit_text(get_text("error_payment_gateway"))
+        try:
+            await callback.message.edit_text(get_text("error_payment_gateway"))
+        except Exception as e:
+            logging.error(f"Failed to edit message with payment gateway error: {e}")
 
-    try:
-        await callback.answer()
-    except Exception:
-        pass
+    await safe_callback_answer(callback)
 
 
 @router.callback_query(F.data.startswith("pay_crypto:"))
@@ -354,18 +349,15 @@ async def pay_crypto_callback_handler(
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if not i18n or not callback.message:
-        try:
-            await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
-        except Exception:
-            pass
+        await safe_callback_answer(callback, get_text("error_occurred_try_again"), show_alert=True)
         return
 
     if not cryptopay_service or not cryptopay_service.configured:
-        await callback.message.edit_text(get_text("payment_service_unavailable"))
         try:
-            await callback.answer(get_text("payment_service_unavailable_alert"), show_alert=True)
-        except Exception:
-            pass
+            await callback.message.edit_text(get_text("payment_service_unavailable"))
+        except Exception as e:
+            logging.error(f"Failed to edit message with service unavailable: {e}")
+        await safe_callback_answer(callback, get_text("payment_service_unavailable_alert"), show_alert=True)
         return
 
     try:
@@ -375,29 +367,35 @@ async def pay_crypto_callback_handler(
         amount_val = float(amount_str)
     except (ValueError, IndexError):
         logging.error(f"Invalid pay_crypto data in callback: {callback.data}")
-        try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
+        await safe_callback_answer(callback, get_text("error_try_again"), show_alert=True)
         return
 
     user_id = callback.from_user.id
     description = get_text("payment_description_subscription", months=months)
 
-    invoice_url = await cryptopay_service.create_invoice(
-        session, user_id, months, amount_val, description)
-    if invoice_url:
-        await callback.message.edit_text(
-            get_text("payment_link_message", months=months),
-            reply_markup=get_payment_url_keyboard(invoice_url, current_lang, i18n),
-            disable_web_page_preview=False,
-        )
-    else:
-        await callback.message.edit_text(get_text("error_payment_gateway"))
     try:
-        await callback.answer()
-    except Exception:
-        pass
+        invoice_url = await cryptopay_service.create_invoice(
+            session, user_id, months, amount_val, description)
+        if invoice_url:
+            try:
+                await callback.message.edit_text(
+                    get_text("payment_link_message", months=months),
+                    reply_markup=get_payment_url_keyboard(invoice_url, current_lang, i18n),
+                    disable_web_page_preview=False,
+                )
+            except Exception as e:
+                logging.error(f"Failed to edit message with crypto payment link: {e}")
+        else:
+            try:
+                await callback.message.edit_text(get_text("error_payment_gateway"))
+            except Exception as e:
+                logging.error(f"Failed to edit message with payment gateway error: {e}")
+    except Exception as e:
+        logging.error(f"Error creating CryptoPay invoice for user {user_id}: {e}")
+        await safe_callback_answer(callback, get_text("error_payment_gateway"), show_alert=True)
+        return
+    
+    await safe_callback_answer(callback)
 
 
 @router.callback_query(F.data == "main_action:subscribe")
@@ -424,14 +422,44 @@ async def my_subscription_command_handler(
 
     if not i18n or not target:
         if isinstance(event, types.Message):
-            await event.answer(get_text("error_occurred_try_again"))
+            try:
+                await event.answer(get_text("error_occurred_try_again"))
+            except Exception as e:
+                logging.error(f"Failed to send error message: {e}")
+        elif isinstance(event, types.CallbackQuery):
+            await safe_callback_answer(event, get_text("error_occurred_try_again"), show_alert=True)
         return
 
     if not panel_service or not subscription_service:
-        await target.answer(get_text("error_service_unavailable"))
+        error_msg = get_text("error_service_unavailable")
+        try:
+            if isinstance(event, types.CallbackQuery):
+                await event.message.edit_text(error_msg)
+            else:
+                await target.answer(error_msg)
+        except Exception as e:
+            logging.error(f"Failed to send service unavailable message: {e}")
+        
+        if isinstance(event, types.CallbackQuery):
+            await safe_callback_answer(event)
         return
 
-    active = await subscription_service.get_active_subscription_details(session, event.from_user.id)
+    try:
+        active = await subscription_service.get_active_subscription_details(session, event.from_user.id)
+    except Exception as e:
+        logging.error(f"Error getting subscription details for user {event.from_user.id}: {e}")
+        error_msg = get_text("error_service_unavailable")
+        try:
+            if isinstance(event, types.CallbackQuery):
+                await event.message.edit_text(error_msg)
+            else:
+                await target.answer(error_msg)
+        except Exception as e_send:
+            logging.error(f"Failed to send service error message: {e_send}")
+        
+        if isinstance(event, types.CallbackQuery):
+            await safe_callback_answer(event)
+        return
 
     if not active:
         text = get_text("subscription_not_active")
@@ -450,16 +478,20 @@ async def my_subscription_command_handler(
         )
 
         if isinstance(event, types.CallbackQuery):
-            try:
-                await event.answer()
-            except Exception:
-                pass
+            await safe_callback_answer(event)
             try:
                 await event.message.edit_text(text, reply_markup=kb)
-            except:
-                await event.message.answer(text, reply_markup=kb)
+            except Exception as e_edit:
+                logging.warning(f"Failed to edit subscription message: {e_edit}")
+                try:
+                    await event.message.answer(text, reply_markup=kb)
+                except Exception as e_send:
+                    logging.error(f"Failed to send subscription message: {e_send}")
         else:
-            await event.answer(text, reply_markup=kb)
+            try:
+                await event.answer(text, reply_markup=kb)
+            except Exception as e:
+                logging.error(f"Failed to send subscription not active message: {e}")
         return
 
     end_date = active.get("end_date")
@@ -487,21 +519,28 @@ async def my_subscription_command_handler(
     markup = get_back_to_main_menu_markup(current_lang, i18n)
 
     if isinstance(event, types.CallbackQuery):
-        try:
-            await event.answer()
-        except Exception:
-            pass
+        await safe_callback_answer(event)
         try:
             await event.message.edit_text(text, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=True)
-        except:
-            await bot.send_message(chat_id=target.chat.id, text=text, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=True)
+        except Exception as e_edit:
+            logging.warning(f"Failed to edit subscription details message: {e_edit}")
+            try:
+                await bot.send_message(chat_id=target.chat.id, text=text, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=True)
+            except Exception as e_send:
+                logging.error(f"Failed to send subscription details message: {e_send}")
     else:
-        await target.answer(text, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=True)
+        try:
+            await target.answer(text, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=True)
+        except Exception as e:
+            logging.error(f"Failed to send subscription details message: {e}")
 
 
 @router.pre_checkout_query()
 async def stars_pre_checkout_handler(pre_checkout_query: types.PreCheckoutQuery):
-    await pre_checkout_query.answer(ok=True)
+    try:
+        await pre_checkout_query.answer(ok=True)
+    except Exception as e:
+        logging.error(f"Failed to answer pre-checkout query: {e}")
 
 
 @router.message(F.successful_payment)
@@ -522,8 +561,11 @@ async def stars_successful_payment_handler(
         return
 
     stars_amount = sp.total_amount
-    await stars_service.process_successful_payment(
-        session, message, payment_db_id, months, stars_amount, i18n_data)
+    try:
+        await stars_service.process_successful_payment(
+            session, message, payment_db_id, months, stars_amount, i18n_data)
+    except Exception as e:
+        logging.error(f"Error processing successful Stars payment for user {message.from_user.id}: {e}")
 
 
 @router.message(Command("connect"))
@@ -533,6 +575,9 @@ async def connect_command_handler(message: types.Message, i18n_data: dict,
                                   subscription_service: SubscriptionService,
                                   session: AsyncSession, bot: Bot):
     logging.info(f"User {message.from_user.id} used /connect command.")
-    await my_subscription_command_handler(message, i18n_data, settings,
-                                          panel_service, subscription_service,
-                                          session, bot)
+    try:
+        await my_subscription_command_handler(message, i18n_data, settings,
+                                              panel_service, subscription_service,
+                                              session, bot)
+    except Exception as e:
+        logging.error(f"Error in connect command handler for user {message.from_user.id}: {e}")

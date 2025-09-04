@@ -29,6 +29,14 @@ YOOKASSA_EVENT_PAYMENT_SUCCEEDED = 'payment.succeeded'
 YOOKASSA_EVENT_PAYMENT_CANCELED = 'payment.canceled'
 
 
+async def safe_send_message(bot: Bot, user_id: int, text: str, **kwargs):
+    """Безопасная отправка сообщения с обработкой ошибок"""
+    try:
+        await bot.send_message(user_id, text, **kwargs)
+    except Exception as e:
+        logging.error(f"Failed to send message to user {user_id}: {e}")
+
+
 async def process_successful_payment(session: AsyncSession, bot: Bot,
                                      payment_info_from_webhook: dict,
                                      i18n: JsonI18n, settings: Settings,
@@ -65,9 +73,12 @@ async def process_successful_payment(session: AsyncSession, bot: Bot,
                 f"User {user_id} not found in DB during successful payment processing for YK ID {payment_info_from_webhook.get('id')}. Payment record {payment_db_id}."
             )
 
-            await payment_dal.update_payment_status_by_db_id(
-                session, payment_db_id, "failed_user_not_found",
-                payment_info_from_webhook.get("id"))
+            try:
+                await payment_dal.update_payment_status_by_db_id(
+                    session, payment_db_id, "failed_user_not_found",
+                    payment_info_from_webhook.get("id"))
+            except Exception as e:
+                logging.error(f"Failed to update payment status to failed_user_not_found: {e}")
 
             return
 
@@ -89,11 +100,17 @@ async def process_successful_payment(session: AsyncSession, bot: Bot,
 
     try:
         yk_payment_id_from_hook = payment_info_from_webhook.get("id")
-        updated_payment_record = await payment_dal.update_payment_status_by_db_id(
-            session,
-            payment_db_id=payment_db_id,
-            new_status=payment_info_from_webhook.get("status", "succeeded"),
-            yk_payment_id=yk_payment_id_from_hook)
+        
+        try:
+            updated_payment_record = await payment_dal.update_payment_status_by_db_id(
+                session,
+                payment_db_id=payment_db_id,
+                new_status=payment_info_from_webhook.get("status", "succeeded"),
+                yk_payment_id=yk_payment_id_from_hook)
+        except Exception as e:
+            logging.error(f"Failed to update payment record {payment_db_id}: {e}")
+            raise Exception(f"DB Error: Could not update payment record {payment_db_id}")
+            
         if not updated_payment_record:
             logging.error(
                 f"Failed to update payment record {payment_db_id} for yk_id {yk_payment_id_from_hook}"
@@ -101,14 +118,18 @@ async def process_successful_payment(session: AsyncSession, bot: Bot,
             raise Exception(
                 f"DB Error: Could not update payment record {payment_db_id}")
 
-        activation_details = await subscription_service.activate_subscription(
-            session,
-            user_id,
-            subscription_months,
-            payment_value,
-            payment_db_id,
-            promo_code_id_from_payment=promo_code_id,
-            provider="yookassa")
+        try:
+            activation_details = await subscription_service.activate_subscription(
+                session,
+                user_id,
+                subscription_months,
+                payment_value,
+                payment_db_id,
+                promo_code_id_from_payment=promo_code_id,
+                provider="yookassa")
+        except Exception as e:
+            logging.error(f"Error activating subscription for user {user_id}: {e}")
+            raise Exception(f"Subscription Error: Failed to activate for user {user_id}")
 
         if not activation_details or not activation_details.get('end_date'):
             logging.error(
@@ -122,8 +143,13 @@ async def process_successful_payment(session: AsyncSession, bot: Bot,
         applied_promo_bonus_days = activation_details.get(
             "applied_promo_bonus_days", 0)
 
-        referral_bonus_info = await referral_service.apply_referral_bonuses_for_payment(
-            session, user_id, subscription_months)
+        try:
+            referral_bonus_info = await referral_service.apply_referral_bonuses_for_payment(
+                session, user_id, subscription_months)
+        except Exception as e:
+            logging.error(f"Error applying referral bonuses for user {user_id}: {e}")
+            referral_bonus_info = None
+            
         applied_referee_bonus_days_from_referral: Optional[int] = None
         if referral_bonus_info and referral_bonus_info.get(
                 "referee_new_end_date"):
@@ -142,12 +168,15 @@ async def process_successful_payment(session: AsyncSession, bot: Bot,
         if applied_referee_bonus_days_from_referral and final_end_date_for_user:
             inviter_name_display = _("friend_placeholder")
             if db_user and db_user.referred_by_id:
-                inviter = await user_dal.get_user_by_id(
-                    session, db_user.referred_by_id)
-                if inviter and inviter.first_name:
-                    inviter_name_display = inviter.first_name
-                elif inviter and inviter.username:
-                    inviter_name_display = f"@{inviter.username}"
+                try:
+                    inviter = await user_dal.get_user_by_id(
+                        session, db_user.referred_by_id)
+                    if inviter and inviter.first_name:
+                        inviter_name_display = inviter.first_name
+                    elif inviter and inviter.username:
+                        inviter_name_display = f"@{inviter.username}"
+                except Exception as e:
+                    logging.error(f"Error getting inviter info for user {db_user.referred_by_id}: {e}")
 
             details_message = _(
                 "payment_successful_with_referral_bonus_full",
@@ -182,18 +211,15 @@ async def process_successful_payment(session: AsyncSession, bot: Bot,
         details_markup = get_connect_and_main_keyboard(
             user_lang, i18n, settings, config_link
         )
-        try:
-            await bot.send_message(
-                user_id,
-                details_message,
-                reply_markup=details_markup,
-                parse_mode="HTML",
-                disable_web_page_preview=True,
-            )
-        except Exception as e_notify:
-            logging.error(
-                f"Failed to send payment details message to user {user_id}: {e_notify}"
-            )
+        
+        await safe_send_message(
+            bot,
+            user_id,
+            details_message,
+            reply_markup=details_markup,
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+        )
 
         # Send notification about payment
         try:
@@ -214,7 +240,6 @@ async def process_successful_payment(session: AsyncSession, bot: Bot,
         logging.error(
             f"Error during process_successful_payment main try block for user {user_id}: {e_process}",
             exc_info=True)
-
         raise
 
 
@@ -240,11 +265,15 @@ async def process_cancelled_payment(session: AsyncSession, bot: Bot,
         return
 
     try:
-        updated_payment = await payment_dal.update_payment_status_by_db_id(
-            session,
-            payment_db_id=payment_db_id,
-            new_status=payment_info_from_webhook.get("status", "canceled"),
-            yk_payment_id=payment_info_from_webhook.get("id"))
+        try:
+            updated_payment = await payment_dal.update_payment_status_by_db_id(
+                session,
+                payment_db_id=payment_db_id,
+                new_status=payment_info_from_webhook.get("status", "canceled"),
+                yk_payment_id=payment_info_from_webhook.get("id"))
+        except Exception as e:
+            logging.error(f"Failed to update cancelled payment status: {e}")
+            updated_payment = None
 
         if updated_payment:
             logging.info(
@@ -255,12 +284,17 @@ async def process_cancelled_payment(session: AsyncSession, bot: Bot,
                 f"Could not find payment record {payment_db_id} to update status to cancelled for user {user_id}."
             )
 
-        db_user = await user_dal.get_user_by_id(session, user_id)
-        user_lang = settings.DEFAULT_LANGUAGE
-        if db_user and db_user.language_code: user_lang = db_user.language_code
+        try:
+            db_user = await user_dal.get_user_by_id(session, user_id)
+            user_lang = settings.DEFAULT_LANGUAGE
+            if db_user and db_user.language_code: 
+                user_lang = db_user.language_code
+        except Exception as e:
+            logging.error(f"Error getting user {user_id} for cancelled payment: {e}")
+            user_lang = settings.DEFAULT_LANGUAGE
 
         _ = lambda key, **kwargs: i18n.gettext(user_lang, key, **kwargs)
-        await bot.send_message(user_id, _("payment_failed"))
+        await safe_send_message(bot, user_id, _("payment_failed"))
 
     except Exception as e_process_cancel:
         logging.error(
@@ -270,7 +304,6 @@ async def process_cancelled_payment(session: AsyncSession, bot: Bot,
 
 
 async def yookassa_webhook_route(request: web.Request):
-
     try:
         bot: Bot = request.app['bot']
         i18n_instance: JsonI18n = request.app['i18n']
@@ -291,7 +324,14 @@ async def yookassa_webhook_route(request: web.Request):
 
     try:
         event_json = await request.json()
+    except json.JSONDecodeError:
+        logging.error("YooKassa Webhook: Invalid JSON received.")
+        return web.Response(status=400, text="bad_request_invalid_json")
+    except Exception as e:
+        logging.error(f"Error reading YooKassa webhook JSON: {e}")
+        return web.Response(status=400, text="bad_request")
 
+    try:
         notification_object = WebhookNotification(event_json)
         payment_data_from_notification = notification_object.object
 
@@ -360,9 +400,6 @@ async def yookassa_webhook_route(request: web.Request):
 
         return web.Response(status=200, text="ok")
 
-    except json.JSONDecodeError:
-        logging.error("YooKassa Webhook: Invalid JSON received.")
-        return web.Response(status=400, text="bad_request_invalid_json")
     except Exception as e_general_webhook:
         logging.error(
             f"YooKassa Webhook general processing error: {e_general_webhook}",

@@ -1,1 +1,1 @@
-# App package
+# Bot application modules
