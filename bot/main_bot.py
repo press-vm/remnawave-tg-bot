@@ -58,6 +58,8 @@ async def on_startup_configured(dispatcher: Dispatcher) -> None:
         logging.error(f"❌ STARTUP: Critical error during startup: {e}", exc_info=True)
         raise
 
+    logging.info("STARTUP: Bot on_startup_configured completed.")
+
 
 async def _configure_telegram_webhook(bot: Bot, settings: Settings, dispatcher: Dispatcher) -> None:
     """Настраивает Telegram webhook"""
@@ -288,6 +290,9 @@ async def run_bot(settings_param: Settings) -> None:
         await register_all_routers(dp, settings_param)
 
         logging.info("🌐 Starting bot in Webhook mode with AIOHTTP server...")
+        
+        logging.info("Starting bot in Webhook mode with AIOHTTP server...")
+        logging.info("Starting bot with main tasks: ['WebServerTask']")
         
         # Запускаем веб-приложение с webhook'ами
         await build_and_start_web_app(
