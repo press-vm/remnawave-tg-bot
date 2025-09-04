@@ -37,19 +37,27 @@ class ProfileSyncMiddleware(BaseMiddleware):
                             f"ProfileSyncMiddleware: Updated user {tg_user.id} profile fields: {list(update_payload.keys())}"
                         )
 
-                        # Also update description on panel if linked
+                        # Update description on panel if linked (using new formatting logic)
                         try:
                             panel_service = data.get("panel_service")
                             if panel_service and db_user.panel_user_uuid:
-                                description_text = "\n".join([
-                                    tg_user.username or "",
-                                    tg_user.first_name or "",
-                                    tg_user.last_name or "",
-                                ])
+                                # Формируем description аналогично _get_user_description
+                                full_name = f"{tg_user.first_name or ''} {tg_user.last_name or ''}".strip()
+                                description_text = ""
+                                if full_name:
+                                    description_text = full_name
+                                    if tg_user.username:
+                                        description_text += f" (@{tg_user.username})"
+                                elif tg_user.username:
+                                    description_text = f"@{tg_user.username}"
+                                else:
+                                    description_text = f"Telegram ID: {tg_user.id}"
+                                
                                 await panel_service.update_user_details_on_panel(
                                     db_user.panel_user_uuid,
                                     {"description": description_text},
                                 )
+                                logging.info(f"ProfileSyncMiddleware: Updated panel description for user {tg_user.id}")
                         except Exception as e_upd_desc:
                             logging.warning(
                                 f"ProfileSyncMiddleware: Failed to update panel description for user {tg_user.id}: {e_upd_desc}"
