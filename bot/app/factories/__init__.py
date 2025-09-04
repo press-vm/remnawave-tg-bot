@@ -1,1 +1,1 @@
-# Factories package
+# Service factories

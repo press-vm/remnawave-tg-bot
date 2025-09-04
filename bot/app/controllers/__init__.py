@@ -1,1 +1,1 @@
-# Controllers package
+# Controllers for dispatcher management
