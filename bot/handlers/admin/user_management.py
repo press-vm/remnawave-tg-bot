@@ -172,10 +172,14 @@ async def format_user_card(user: User, session: AsyncSession,
             
             traffic_limit = subscription_details.get('traffic_limit_bytes')
             traffic_used = subscription_details.get('traffic_used_bytes')
-            if traffic_limit and traffic_used is not None:
-                traffic_limit_gb = traffic_limit / (1024**3)
+            if traffic_used is not None:
                 traffic_used_gb = traffic_used / (1024**3)
-                card_parts.append(f"{_('admin_user_traffic_label', default='📊 <b>Трафик:</b>')} {hcode(f'{traffic_used_gb:.2f}GB / {traffic_limit_gb:.2f}GB')}")
+                if traffic_limit and traffic_limit > 0:
+                    traffic_limit_gb = traffic_limit / (1024**3)
+                    traffic_text = f"{traffic_used_gb:.2f} GB / {traffic_limit_gb:.2f} GB"
+                else:
+                    traffic_text = f"{traffic_used_gb:.2f} GB / Безлимитный"
+                card_parts.append(f"{_('admin_user_traffic_label', default='📊 <b>Трафик:</b>')} {hcode(traffic_text)}")
         else:
             card_parts.append(f"{_('admin_user_subscription_label', default='💼 <b>Подписка:</b>')} {hcode(_('admin_user_subscription_none', default='Нет активной подписки'))}")
     except Exception as e:
