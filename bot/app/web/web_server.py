@@ -140,6 +140,9 @@ async def _start_server(app: web.Application, settings: Settings) -> None:
         # Запускаем сервер
         await site.start()
         logging.info(
+            f"AIOHTTP server started on http://{settings.WEB_SERVER_HOST}:{settings.WEB_SERVER_PORT}"
+        )
+        logging.info(
             f"🚀 AIOHTTP server started on http://{settings.WEB_SERVER_HOST}:{settings.WEB_SERVER_PORT}"
         )
 
