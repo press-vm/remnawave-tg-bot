@@ -363,7 +363,7 @@ async def sync_command_handler(
         await message_event.answer(user_msg)
 
     # Send detailed admin notification
-    notification_service = NotificationService(bot, settings)
+    notification_service = NotificationService(bot, settings, i18n)
     admin_notification_msg = _(
         "log_panel_sync",
         default=(
