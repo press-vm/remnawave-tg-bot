@@ -1,5 +1,6 @@
 import logging
 from aiogram import Router, F, types
+from aiogram.filters import Command
 from typing import Optional, Dict, List
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -243,3 +244,87 @@ async def show_statistics_handler(callback: types.CallbackQuery,
                         reply_markup=get_back_to_admin_panel_keyboard(
                             current_lang, i18n))
                 break
+
+
+@router.message(Command("stats"))
+async def stats_command_handler(
+    message: types.Message,
+    i18n_data: dict,
+    settings: Settings,
+    session: AsyncSession
+):
+    """Команда /stats - показать общую статистику"""
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    if not i18n:
+        await message.answer("Language error.")
+        return
+    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
+    
+    # Создаем фейковый callback для использования существующей функции
+    class FakeCallback:
+        def __init__(self, message):
+            self.message = message
+            self.from_user = message.from_user
+        
+        async def answer(self, text="", show_alert=False):
+            pass  # Заглушка
+    
+    fake_callback = FakeCallback(message)
+    await show_statistics_handler(fake_callback, i18n_data, settings, session)
+
+
+@router.message(Command("users_stats"))
+async def users_stats_command_handler(
+    message: types.Message,
+    i18n_data: dict,
+    settings: Settings,
+    session: AsyncSession
+):
+    """Команда /users_stats - статистика пользователей"""
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    if not i18n:
+        await message.answer("Language error.")
+        return
+    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
+    
+    # Получаем статистику пользователей
+    user_stats = await user_dal.get_enhanced_user_statistics(session)
+    
+    stats_text = f"<b>👥 {_('admin_enhanced_users_stats_header', default='Статистика пользователей')}</b>\n\n"
+    stats_text += f"📊 {_('admin_user_stats_total_label', default='Всего')}: <b>{user_stats['total_users']}</b>\n"
+    stats_text += f"💳 {_('admin_user_stats_paid_subs_label', default='С платной подпиской')}: <b>{user_stats['paid_subscriptions']}</b>\n"
+    stats_text += f"🆓 {_('admin_user_stats_trial_label', default='На пробном периоде')}: <b>{user_stats['trial_users']}</b>\n"
+    stats_text += f"😴 {_('admin_user_stats_inactive_label', default='Неактивных')}: <b>{user_stats['inactive_users']}</b>\n"
+    stats_text += f"🚫 {_('admin_user_stats_banned_label', default='Заблокированных')}: <b>{user_stats['banned_users']}</b>\n"
+    stats_text += f"🎁 {_('admin_user_stats_referral_label', default='Привлечено по реферальной программе')}: <b>{user_stats['referral_users']}</b>"
+    
+    await message.answer(stats_text, parse_mode="HTML")
+
+
+@router.message(Command("revenue_stats"))
+async def revenue_stats_command_handler(
+    message: types.Message,
+    i18n_data: dict,
+    settings: Settings,
+    session: AsyncSession
+):
+    """Команда /revenue_stats - финансовая статистика"""
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    if not i18n:
+        await message.answer("Language error.")
+        return
+    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
+    
+    # Получаем финансовую статистику
+    financial_stats = await payment_dal.get_financial_statistics(session)
+    
+    stats_text = f"<b>💰 {_('admin_financial_stats_header', default='Финансовая статистика')}</b>\n\n"
+    stats_text += f"📅 {_('admin_financial_today_label', default='За сегодня')}: <b>{financial_stats['today_revenue']:.2f} RUB</b> ({financial_stats['today_payments_count']} {_('admin_financial_payments_label', default='платежей')})\n"
+    stats_text += f"📅 {_('admin_financial_week_label', default='За неделю')}: <b>{financial_stats['week_revenue']:.2f} RUB</b>\n"
+    stats_text += f"📅 {_('admin_financial_month_label', default='За месяц')}: <b>{financial_stats['month_revenue']:.2f} RUB</b>\n"
+    stats_text += f"🏆 {_('admin_financial_all_time_label', default='За все время')}: <b>{financial_stats['all_time_revenue']:.2f} RUB</b>"
+    
+    await message.answer(stats_text, parse_mode="HTML")
