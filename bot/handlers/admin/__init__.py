@@ -8,6 +8,7 @@ from . import statistics
 from . import sync_admin
 from . import logs_admin
 from . import payments
+from . import update_names
 
 admin_router_aggregate = Router(name="admin_features_router")
 

@@ -34,8 +34,9 @@
 - `get_trial_subscriptions_count()` - количество пробных подписок (по provider='trial')
 
 ### 5. Подключен роутер update_names к админскому агрегатору
-В файле `bot/handlers/admin/__init__.py` добавлена строка:
+В файле `bot/handlers/admin/__init__.py` добавлены строки:
 ```python
+from . import update_names
 admin_router_aggregate.include_router(update_names.router)
 ```
 
