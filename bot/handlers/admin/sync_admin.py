@@ -253,43 +253,27 @@ async def perform_sync(panel_service: PanelApiService, session: AsyncSession,
 
         # Create detailed statistics string
         _ = lambda key, **kwargs: i18n_instance.gettext("ru", key, **kwargs) if i18n_instance else key
-        details_text = _(
-            "admin_sync_details",
-            default=(
-                "📊 Статистика синхронизации:\n"
-                "🔍 Проверено записей панели: {panel_records_checked}\n"
-                "👥 Найдено пользователей в БД: {users_found_in_db}\n"
-                "✨ Создано новых пользователей: {users_created}\n"
-                "🔄 Пользователей обновлено: {users_updated}\n"
-                "📋 Подписок синхронизировано: {subscriptions_synced_count}\n"
-                "   ├── Создано новых: {subscriptions_created}\n"
-                "   └── Обновлено существующих: {subscriptions_updated}"
-            ),
-            **sync_stats,
-        )
-
-        # Add optional additional statistics
+        
+        # Сначала формируем additional_stats
         additional_stats = ""
         if users_without_telegram_id > 0:
-            additional_stats += _(
-                "admin_sync_no_telegram_id",
-                default="\n⚠️ Записей без telegramId: {count}",
-                count=users_without_telegram_id,
-            )
+            additional_stats += _("admin_sync_no_telegram_id", default="\n⚠️ Записей без telegramId: {count}", count=users_without_telegram_id)
         if users_not_found_in_db > 0:
-            additional_stats += _(
-                "admin_sync_not_found_in_db",
-                default="\n❌ Не найдено в БД: {count}",
-                count=users_not_found_in_db,
-            )
+            additional_stats += _("admin_sync_not_found_in_db", default="\n❌ Не найдено в БД: {count}", count=users_not_found_in_db)
         if sync_errors:
-            additional_stats += _(
-                "admin_sync_errors",
-                default="\n🚫 Ошибок: {count}",
-                count=len(sync_errors),
-            )
-
-        details_text += additional_stats
+            additional_stats += _("admin_sync_errors", default="\n🚫 Ошибок: {count}", count=len(sync_errors))
+        
+        # Теперь формируем основную строку с additional_stats
+        details_text = _("admin_sync_details", default=(
+            "📊 Статистика синхронизации:\n"
+            "🔍 Проверено записей панели: {panel_records_checked}\n"
+            "👥 Найдено пользователей в БД: {users_found_in_db}\n"
+            "✨ Создано новых пользователей: {users_created}\n"
+            "🔄 Пользователей обновлено: {users_updated}\n"
+            "📋 Подписок синхронизировано: {subscriptions_synced_count}\n"
+            "   ├── Создано новых: {subscriptions_created}\n"
+            "   └── Обновлено существующих: {subscriptions_updated}{additional_stats}"
+        ), **sync_stats, additional_stats=additional_stats)
 
         # Determine status
         if sync_errors:
