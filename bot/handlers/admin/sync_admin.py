@@ -363,25 +363,28 @@ async def sync_command_handler(
         await message_event.answer(user_msg)
 
     # Send detailed admin notification
-    notification_service = NotificationService(bot, settings, i18n)
-    admin_notification_msg = _(
-        "log_panel_sync",
-        default=(
-            "{status_emoji} <b>Синхронизация с панелью</b>\n\n"
-            "📊 Статус: <b>{status}</b>\n"
-            "👥 Обработано пользователей: <b>{users_processed}</b>\n"
-            "📋 Синхронизировано подписок: <b>{subs_synced}</b>\n"
-            "🕐 Время: {timestamp}\n\n"
-            "📝 Детали:\n{details}"
-        ),
-        status_emoji="✅" if sync_result["status"] == "completed" else ("⚠️" if sync_result["status"] == "completed_with_errors" else "❌"),
-        status=sync_result["status"],
-        users_processed=sync_result.get("users_synced", 0),
-        subs_synced=sync_result.get("subs_synced", 0),
-        timestamp=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
-        details=sync_result["details"],
-    )
-
-    await notification_service.send_admin_notification(
-        admin_notification_msg, notify_events=False, parse_mode="HTML"
-    )
+    if settings.ADMIN_IDS:
+        admin_notification_msg = _(
+            "log_panel_sync",
+            default=(
+                "{status_emoji} <b>Синхронизация с панелью</b>\n\n"
+                "📊 Статус: <b>{status}</b>\n"
+                "👥 Обработано пользователей: <b>{users_processed}</b>\n"
+                "📋 Синхронизировано подписок: <b>{subs_synced}</b>\n"
+                "🕐 Время: {timestamp}\n\n"
+                "📝 Детали:\n{details}"
+            ),
+            status_emoji="✅" if sync_result["status"] == "completed" else ("⚠️" if sync_result["status"] == "completed_with_errors" else "❌"),
+            status=sync_result["status"],
+            users_processed=sync_result.get("users_synced", 0),
+            subs_synced=sync_result.get("subs_synced", 0),
+            timestamp=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
+            details=sync_result["details"],
+        )
+        
+        # Отправляем всем админам
+        for admin_id in settings.ADMIN_IDS:
+            try:
+                await bot.send_message(admin_id, admin_notification_msg, parse_mode="HTML")
+            except Exception as e:
+                logging.error(f"Failed to send sync notification to admin {admin_id}: {e}")
