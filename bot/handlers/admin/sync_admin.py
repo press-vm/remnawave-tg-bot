@@ -436,3 +436,18 @@ async def sync_status_command_handler(
         response_text = _("admin_sync_status_never_run")
 
     await message.answer(response_text, parse_mode="HTML")
+
+
+@router.message(Command("sync_admin"))
+async def sync_admin_command_handler(
+    message_event: types.Message,
+    bot: Bot,
+    settings: Settings,
+    i18n_data: dict,
+    panel_service: PanelApiService,
+    session: AsyncSession,
+):
+    """
+    Команда /sync_admin - псевдоним для /sync команды
+    """
+    await sync_command_handler(message_event, bot, settings, i18n_data, panel_service, session)

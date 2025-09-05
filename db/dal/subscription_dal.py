@@ -23,6 +23,34 @@ async def get_active_subscription_by_user_id(
     return result.scalar_one_or_none()
 
 
+async def get_active_subscriptions_count(session: AsyncSession) -> int:
+    """Получить количество активных подписок"""
+    stmt = select(func.count(Subscription.subscription_id)).where(
+        Subscription.is_active == True,
+        Subscription.end_date > datetime.now(timezone.utc)
+    )
+    result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
+async def get_expired_subscriptions_count(session: AsyncSession) -> int:
+    """Получить количество истекших подписок"""
+    stmt = select(func.count(Subscription.subscription_id)).where(
+        Subscription.end_date <= datetime.now(timezone.utc)
+    )
+    result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
+async def get_trial_subscriptions_count(session: AsyncSession) -> int:
+    """Получить количество пробных подписок (по провайдеру 'trial')"""
+    stmt = select(func.count(Subscription.subscription_id)).where(
+        Subscription.provider == "trial"
+    )
+    result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
 async def get_subscription_by_panel_subscription_uuid(
         session: AsyncSession, panel_sub_uuid: str) -> Optional[Subscription]:
     stmt = select(Subscription).where(

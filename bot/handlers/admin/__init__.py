@@ -19,5 +19,6 @@ admin_router_aggregate.include_router(statistics.router)
 admin_router_aggregate.include_router(sync_admin.router)
 admin_router_aggregate.include_router(logs_admin.router)
 admin_router_aggregate.include_router(payments.router)
+admin_router_aggregate.include_router(update_names.router)
 
 __all__ = ("admin_router_aggregate", )
