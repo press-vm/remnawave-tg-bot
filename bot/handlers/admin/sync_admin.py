@@ -1,6 +1,7 @@
 import logging
 from aiogram import Router, types, Bot
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from typing import Optional, Union
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
@@ -137,23 +138,6 @@ async def perform_sync(panel_service: PanelApiService, session: AsyncSession,
                     users_uuid_updated += 1
                     logging.info(f"Updated panel UUID for user {actual_user_id}: {panel_uuid}")
 
-                # Ensure panel description contains Telegram fields
-                try:
-                    if panel_uuid and existing_user:
-                        description_text = "\n".join([
-                            existing_user.username or "",
-                            existing_user.first_name or "",
-                            existing_user.last_name or "",
-                        ])
-                        if description_text.strip():
-                            await panel_service.update_user_details_on_panel(
-                                panel_uuid, {"description": description_text}
-                            )
-                except Exception as e_desc:
-                    logging.warning(
-                        f"Sync: Failed to update description for panel user {panel_uuid} (tg {actual_user_id}): {e_desc}"
-                    )
-
                 # Sync subscription data
                 panel_expire_at_iso = panel_user_dict.get("expireAt")
                 panel_status = panel_user_dict.get("status", "UNKNOWN")
@@ -171,7 +155,7 @@ async def perform_sync(panel_service: PanelApiService, session: AsyncSession,
                         )
 
                         if subscription_uuid_from_panel:
-                            # Try to find subscription by its panel_subscription_uuid first (idempotent)
+                            # Try to find subscription by its panel_subscription_uuid first
                             existing_sub_by_uuid = (
                                 await subscription_dal.get_subscription_by_panel_subscription_uuid(
                                     session, subscription_uuid_from_panel
@@ -179,7 +163,7 @@ async def perform_sync(panel_service: PanelApiService, session: AsyncSession,
                             )
 
                             if existing_sub_by_uuid:
-                                # Atomic update of all relevant fields
+                                # Update existing subscription
                                 await subscription_dal.update_subscription(
                                     session,
                                     existing_sub_by_uuid.subscription_id,
@@ -198,12 +182,11 @@ async def perform_sync(panel_service: PanelApiService, session: AsyncSession,
                                     f"Synced existing subscription {existing_sub_by_uuid.subscription_id} for user {actual_user_id}: expires {panel_expire_at}, status {panel_status}"
                                 )
                             else:
-                                # Create a new subscription only when we have a concrete subscription UUID
+                                # Create a new subscription
                                 sub_payload = {
                                     "user_id": actual_user_id,
                                     "panel_user_uuid": panel_uuid,
                                     "panel_subscription_uuid": subscription_uuid_from_panel,
-                                    # Do not guess precise start_date from panel; keep nullable
                                     "start_date": None,
                                     "end_date": panel_expire_at,
                                     "duration_months": None,
@@ -218,10 +201,10 @@ async def perform_sync(panel_service: PanelApiService, session: AsyncSession,
                                 subscriptions_created += 1
                                 user_was_updated = True
                                 logging.info(
-                                    f"Created subscription {created_sub.subscription_id} for user {actual_user_id} by panel_sub_uuid {subscription_uuid_from_panel}"
+                                    f"Created subscription {created_sub.subscription_id} for user {actual_user_id}"
                                 )
                         else:
-                            # No subscription UUID from panel: only update an already active subscription for this user/panel UUID
+                            # No subscription UUID from panel: only update existing subscription
                             active_sub = await subscription_dal.get_active_subscription_by_user_id(
                                 session, actual_user_id, panel_uuid
                             )
@@ -239,12 +222,7 @@ async def perform_sync(panel_service: PanelApiService, session: AsyncSession,
                                 subscriptions_updated += 1
                                 user_was_updated = True
                                 logging.info(
-                                    f"Updated active subscription {active_sub.subscription_id} for user {actual_user_id}: expires {panel_expire_at}, status {panel_status}"
-                                )
-                            else:
-                                # Without a concrete subscription UUID we avoid creating new records to keep sync idempotent
-                                logging.debug(
-                                    f"No subscriptionUuid for panel user {panel_uuid}; skipped creation for user {actual_user_id}"
+                                    f"Updated active subscription {active_sub.subscription_id} for user {actual_user_id}"
                                 )
                             
                     except Exception as e:
@@ -255,191 +233,107 @@ async def perform_sync(panel_service: PanelApiService, session: AsyncSession,
                     users_updated += 1
                             
             except Exception as e_user:
-                sync_errors.append(f"Error processing panel user {panel_user_dict.get('uuid', 'unknown')}: {str(e_user)}")
-                logging.error(f"Error syncing user: {e_user}")
+                sync_errors.append(f"Error processing panel user: {str(e_user)}")
+                logging.error(f"Error processing panel user: {e_user}")
 
-        # Update sync status
-        status = "completed_with_errors" if sync_errors else "completed"
-        
-        # Build additional stats
-        default_lang = settings.DEFAULT_LANGUAGE
-        additional_stats = ""
-        if users_without_telegram_id > 0:
-            additional_stats += i18n_instance.gettext(default_lang, "admin_sync_no_telegram_id", count=users_without_telegram_id)
-        if users_not_found_in_db > 0:
-            additional_stats += i18n_instance.gettext(default_lang, "admin_sync_not_found_in_db", count=users_not_found_in_db)
-        if sync_errors:
-            additional_stats += i18n_instance.gettext(default_lang, "admin_sync_errors", count=len(sync_errors))
-        
-        # Build full details using localization
-        details = i18n_instance.gettext(default_lang, "admin_sync_details", 
-            panel_records_checked=panel_records_checked,
-            users_found_in_db=users_found_in_db,
-            users_created=users_created,
-            users_updated=users_updated,
-            subscriptions_synced_count=subscriptions_synced_count,
-            subscriptions_created=subscriptions_created,
-            subscriptions_updated=subscriptions_updated,
-            additional_stats=additional_stats
+        # Prepare detailed sync statistics
+        sync_stats = {
+            "panel_records_checked": panel_records_checked,
+            "users_without_telegram_id": users_without_telegram_id,
+            "users_not_found_in_db": users_not_found_in_db,
+            "users_found_in_db": users_found_in_db,
+            "users_created": users_created,
+            "users_uuid_updated": users_uuid_updated,
+            "users_updated": users_updated,
+            "subscriptions_synced_count": subscriptions_synced_count,
+            "subscriptions_created": subscriptions_created,
+            "subscriptions_updated": subscriptions_updated,
+            "sync_errors": len(sync_errors),
+        }
+
+        # Create detailed statistics string
+        _ = lambda key, **kwargs: i18n_instance.gettext("ru", key, **kwargs) if i18n_instance else key
+        details_text = _(
+            "admin_sync_details",
+            default=(
+                "📊 Статистика синхронизации:\n"
+                "🔍 Проверено записей панели: {panel_records_checked}\n"
+                "👥 Найдено пользователей в БД: {users_found_in_db}\n"
+                "✨ Создано новых пользователей: {users_created}\n"
+                "🔄 Пользователей обновлено: {users_updated}\n"
+                "📋 Подписок синхронизировано: {subscriptions_synced_count}\n"
+                "   ├── Создано новых: {subscriptions_created}\n"
+                "   └── Обновлено существующих: {subscriptions_updated}"
+            ),
+            **sync_stats,
         )
 
+        # Add optional additional statistics
+        additional_stats = ""
+        if users_without_telegram_id > 0:
+            additional_stats += _(
+                "admin_sync_no_telegram_id",
+                default="\n⚠️ Записей без telegramId: {count}",
+                count=users_without_telegram_id,
+            )
+        if users_not_found_in_db > 0:
+            additional_stats += _(
+                "admin_sync_not_found_in_db",
+                default="\n❌ Не найдено в БД: {count}",
+                count=users_not_found_in_db,
+            )
+        if sync_errors:
+            additional_stats += _(
+                "admin_sync_errors",
+                default="\n🚫 Ошибок: {count}",
+                count=len(sync_errors),
+            )
+
+        details_text += additional_stats
+
+        # Determine status
+        if sync_errors:
+            sync_status = "completed_with_errors"
+        else:
+            sync_status = "completed"
+
+        # Update panel sync status
         await panel_sync_dal.update_panel_sync_status(
-            session, status, details, panel_records_checked, subscriptions_synced_count
+            session,
+            sync_status,
+            details_text,
+            users_updated,
+            subscriptions_synced_count,
         )
         await session.commit()
 
-        # Detailed logging summary
-        logging.info(f"Sync completed - Summary:")
-        logging.info(f"  Panel records checked: {panel_records_checked}")
-        logging.info(f"  Users without telegramId: {users_without_telegram_id}")
-        logging.info(f"  Users not found in local DB: {users_not_found_in_db}")
-        logging.info(f"  Users found in local DB: {users_found_in_db}")
-        logging.info(f"  Users created: {users_created}")
-        logging.info(f"  Users with UUID updated: {users_uuid_updated}")
-        logging.info(f"  Users updated overall: {users_updated}")
-        logging.info(f"  Subscriptions total synced: {subscriptions_synced_count}")
-        logging.info(f"  Subscriptions created: {subscriptions_created}")
-        logging.info(f"  Subscriptions updated: {subscriptions_updated}")
-        logging.info(f"  Sync errors: {len(sync_errors)}")
-
         return {
-            "status": status,
-            "details": details,
-            "users_processed": panel_records_checked,
-            "users_synced": users_found_in_db,
-            "users_created": users_created,
+            "status": sync_status,
+            "details": details_text,
+            "users_synced": users_updated,
             "subs_synced": subscriptions_synced_count,
-            "errors": sync_errors
+            "errors": sync_errors,
+            **sync_stats,
         }
 
-    except Exception as e_sync_global:
-        await session.rollback()
-        logging.error(f"Global error during sync: {e_sync_global}", exc_info=True)
-        error_detail = f"Unexpected error during sync: {str(e_sync_global)}"
+    except Exception as e:
+        error_msg = f"Critical sync error: {str(e)}"
+        logging.error(f"Critical sync error: {e}", exc_info=True)
         
-        await panel_sync_dal.update_panel_sync_status(
-            session, "failed", error_detail, panel_records_checked, subscriptions_synced_count
-        )
+        await panel_sync_dal.update_panel_sync_status(session, "failed", error_msg)
+        await session.commit()
         
-        return {"status": "failed", "details": error_detail, "errors": [str(e_sync_global)]}
+        return {
+            "status": "failed",
+            "details": error_msg,
+            "users_synced": 0,
+            "subs_synced": 0,
+            "errors": [error_msg],
+        }
 
 
 @router.message(Command("sync"))
 async def sync_command_handler(
-    message_event: Union[types.Message, types.CallbackQuery],
-    bot: Bot,
-    settings: Settings,
-    i18n_data: dict,
-    panel_service: PanelApiService,
-    session: AsyncSession,
-):
-    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
-    if not i18n:
-        logging.error("i18n missing in sync_command_handler")
-
-        if isinstance(message_event, types.Message):
-            await message_event.answer("Language error.")
-        elif isinstance(message_event, types.CallbackQuery):
-            await message_event.answer("Language error.", show_alert=True)
-        return
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
-
-    target_chat_id = (
-        message_event.chat.id
-        if isinstance(message_event, types.Message)
-        else (message_event.message.chat.id if message_event.message else None)
-    )
-    if not target_chat_id:
-        logging.error("Sync handler: could not determine target_chat_id.")
-        if isinstance(message_event, types.CallbackQuery):
-            await message_event.answer("Error initiating sync.", show_alert=True)
-        return
-
-    if isinstance(message_event, types.Message):
-        await message_event.answer(_("sync_started_simple"))
-
-    logging.info(f"Admin ({message_event.from_user.id}) triggered panel sync.")
-
-    # Use the extracted perform_sync function
-    try:
-        sync_result = await perform_sync(panel_service, session, settings, i18n)
-        
-        status = sync_result.get("status")
-        details = sync_result.get("details", "No details available")
-        errors = sync_result.get("errors", [])
-        
-        # Simple confirmation message to admin
-        if status == "failed":
-            await bot.send_message(target_chat_id, _("sync_failed_simple"))
-        elif status == "completed_with_errors":
-            await bot.send_message(target_chat_id, _("sync_errors_simple", errors_count=len(errors)))
-        else:
-            await bot.send_message(target_chat_id, _("sync_success_simple"))
-        
-        # Send notification to log channel with proper thread handling
-        try:
-            notification_service = NotificationService(bot, settings, i18n)
-            await notification_service.notify_panel_sync(
-                status, details,
-                sync_result.get("users_processed", 0),
-                sync_result.get("subs_synced", 0)
-            )
-        except Exception as e_notification:
-            logging.error(f"Failed to send sync notification: {e_notification}")
-            
-    except Exception as e_sync_global:
-        logging.error(f"Global error during /sync command: {e_sync_global}", exc_info=True)
-        await bot.send_message(target_chat_id, _("sync_critical_error"))
-        
-        # Send notification to log channel about failure
-        try:
-            notification_service = NotificationService(bot, settings, i18n)
-            await notification_service.notify_panel_sync(
-                "failed", str(e_sync_global), 0, 0
-            )
-        except Exception as e_notification:
-            logging.error(f"Failed to send sync failure notification: {e_notification}")
-
-
-@router.message(Command("syncstatus"))
-async def sync_status_command_handler(
-    message: types.Message, i18n_data: dict, settings: Settings, session: AsyncSession
-):
-    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
-    if not i18n:
-        await message.answer("Language error.")
-        return
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
-
-    status_record_model = await panel_sync_dal.get_panel_sync_status(session)
-    response_text = ""
-    if status_record_model:
-        last_time_val = status_record_model.last_sync_time
-        last_time_str = (
-            last_time_val.strftime("%Y-%m-%d %H:%M:%S UTC") if last_time_val else "N/A"
-        )
-
-        details_val = status_record_model.details
-        details_str = details_val or "N/A"
-
-        response_text = (
-            f"<b>{_('admin_stats_last_sync_header')}</b>\n"
-            f"  {_('admin_stats_sync_time')}: {last_time_str}\n"
-            f"  {_('admin_stats_sync_status')}: {status_record_model.status}\n"
-            f"  {_('admin_stats_sync_users_processed')}: {status_record_model.users_processed_from_panel}\n"
-            f"  {_('admin_stats_sync_subs_synced')}: {status_record_model.subscriptions_synced}\n"
-            f"  {_('admin_stats_sync_details_label')}: {details_str}"
-        )
-    else:
-        response_text = _("admin_sync_status_never_run")
-
-    await message.answer(response_text, parse_mode="HTML")
-
-
-@router.message(Command("sync_admin"))
-async def sync_admin_command_handler(
     message_event: types.Message,
     bot: Bot,
     settings: Settings,
@@ -448,6 +342,62 @@ async def sync_admin_command_handler(
     session: AsyncSession,
 ):
     """
-    Команда /sync_admin - псевдоним для /sync команды
+    Handle /sync command - synchronize with panel data and send admin notification
     """
-    await sync_command_handler(message_event, bot, settings, i18n_data, panel_service, session)
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    if not i18n:
+        await message_event.answer("Language error.")
+        return
+
+    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
+
+    # Send status message to user
+    start_msg = await message_event.answer(
+        _("sync_started_simple", default="🔄 Начинаю синхронизацию...")
+    )
+
+    # Perform sync
+    sync_result = await perform_sync(panel_service, session, settings, i18n)
+
+    # Prepare user notification based on result
+    if sync_result["status"] == "completed":
+        user_msg = _("sync_success_simple", default="✅ Синхронизация успешно завершена")
+    elif sync_result["status"] == "completed_with_errors":
+        error_count = len(sync_result.get("errors", []))
+        user_msg = _(
+            "sync_errors_simple",
+            default="⚠️ Синхронизация завершена с ошибками ({errors_count} ошибок)",
+            errors_count=error_count,
+        )
+    else:
+        user_msg = _("sync_failed_simple", default="❌ Синхронизация завершилась с ошибкой")
+
+    try:
+        await start_msg.edit_text(user_msg)
+    except Exception:
+        await message_event.answer(user_msg)
+
+    # Send detailed admin notification
+    notification_service = NotificationService(bot, settings)
+    admin_notification_msg = _(
+        "log_panel_sync",
+        default=(
+            "{status_emoji} <b>Синхронизация с панелью</b>\n\n"
+            "📊 Статус: <b>{status}</b>\n"
+            "👥 Обработано пользователей: <b>{users_processed}</b>\n"
+            "📋 Синхронизировано подписок: <b>{subs_synced}</b>\n"
+            "🕐 Время: {timestamp}\n\n"
+            "📝 Детали:\n{details}"
+        ),
+        status_emoji="✅" if sync_result["status"] == "completed" else ("⚠️" if sync_result["status"] == "completed_with_errors" else "❌"),
+        status=sync_result["status"],
+        users_processed=sync_result.get("users_synced", 0),
+        subs_synced=sync_result.get("subs_synced", 0),
+        timestamp=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
+        details=sync_result["details"],
+    )
+
+    await notification_service.send_admin_notification(
+        admin_notification_msg, notify_events=False, parse_mode="HTML"
+    )

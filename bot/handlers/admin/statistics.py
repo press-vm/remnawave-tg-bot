@@ -1,6 +1,7 @@
 import logging
 from aiogram import Router, F, types
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from typing import Optional, Dict, List
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -249,11 +250,13 @@ async def show_statistics_handler(callback: types.CallbackQuery,
 @router.message(Command("stats"))
 async def stats_command_handler(
     message: types.Message,
+    state: FSMContext,
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession
 ):
     """Команда /stats - показать общую статистику"""
+    await state.clear()  # Очищаем любые состояния
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -277,11 +280,13 @@ async def stats_command_handler(
 @router.message(Command("users_stats"))
 async def users_stats_command_handler(
     message: types.Message,
+    state: FSMContext,
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession
 ):
     """Команда /users_stats - статистика пользователей"""
+    await state.clear()  # Очищаем любые состояния
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -303,18 +308,18 @@ async def users_stats_command_handler(
     await message.answer(stats_text, parse_mode="HTML")
 
 
-@router.message(Command("revenue_stats"))
-async def revenue_stats_command_handler(
-    message: types.Message,
+# Новые обработчики для админской панели
+async def revenue_stats_callback_handler(
+    callback: types.CallbackQuery,
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession
 ):
-    """Команда /revenue_stats - финансовая статистика"""
+    """Обработчик callback'а для финансовой статистики"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
-        await message.answer("Language error.")
+        await callback.answer("Language error.", show_alert=True)
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     
@@ -327,4 +332,88 @@ async def revenue_stats_command_handler(
     stats_text += f"📅 {_('admin_financial_month_label', default='За месяц')}: <b>{financial_stats['month_revenue']:.2f} RUB</b>\n"
     stats_text += f"🏆 {_('admin_financial_all_time_label', default='За все время')}: <b>{financial_stats['all_time_revenue']:.2f} RUB</b>"
     
-    await message.answer(stats_text, parse_mode="HTML")
+    from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
+    
+    try:
+        await callback.message.edit_text(
+            stats_text,
+            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            parse_mode="HTML"
+        )
+    except Exception:
+        await callback.message.answer(
+            stats_text,
+            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            parse_mode="HTML"
+        )
+    
+    await callback.answer()
+
+
+async def support_stats_callback_handler(
+    callback: types.CallbackQuery,
+    i18n_data: dict,
+    settings: Settings,
+    session: AsyncSession
+):
+    """Обработчик callback'а для статистики поддержки"""
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    if not i18n:
+        await callback.answer("Language error.", show_alert=True)
+        return
+    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
+    
+    try:
+        # Проверяем, есть ли система поддержки
+        # Пока сделаем заглушку, так как support_dal может не существовать
+        support_stats = {
+            'active_dialogs': 0,
+            'today_dialogs': 0
+        }
+        
+        from datetime import datetime
+        current_time = datetime.now().strftime('%d.%m.%Y %H:%M:%S')
+        
+        stats_text = f"📊 <b>Статистика поддержки</b>\n"
+        stats_text += f"💬 Активных диалогов: <b>{support_stats.get('active_dialogs', 0)}</b>\n"
+        stats_text += f"📅 Начато сегодня: <b>{support_stats.get('today_dialogs', 0)}</b>\n"
+        stats_text += f"⏰ Время: {current_time}\n\n"
+        stats_text += f"📋 Команды:\n"
+        stats_text += f"• /support_dialogs - список диалогов\n"
+        stats_text += f"• /reply USER_ID текст - ответить\n"
+        stats_text += f"• /support_stats - эта статистика"
+        
+    except ImportError:
+        # Если модуль поддержки не найден, показываем заглушку
+        from datetime import datetime
+        current_time = datetime.now().strftime('%d.%m.%Y %H:%M:%S')
+        
+        stats_text = f"📊 <b>Статистика поддержки</b>\n"
+        stats_text += f"💬 Активных диалогов: <b>0</b>\n"
+        stats_text += f"📅 Начато сегодня: <b>0</b>\n"
+        stats_text += f"⏰ Время: {current_time}\n\n"
+        stats_text += f"📋 Команды:\n"
+        stats_text += f"• /support_dialogs - список диалогов\n"
+        stats_text += f"• /reply USER_ID текст - ответить\n"
+        stats_text += f"• /support_stats - эта статистика"
+    except Exception as e:
+        logging.error(f"Error getting support stats: {e}")
+        stats_text = f"❌ Ошибка получения статистики поддержки"
+    
+    from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
+    
+    try:
+        await callback.message.edit_text(
+            stats_text,
+            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            parse_mode="HTML"
+        )
+    except Exception:
+        await callback.message.answer(
+            stats_text,
+            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            parse_mode="HTML"
+        )
+    
+    await callback.answer()

@@ -41,12 +41,16 @@ def get_stats_monitoring_keyboard(i18n_instance, lang: str) -> InlineKeyboardMar
                    callback_data="admin_action:stats")
     builder.button(text=_(key="admin_view_payments_button", default="💰 Платежи"),
                    callback_data="admin_action:view_payments")
+    builder.button(text="👥 Статистика пользователей",
+                   callback_data="admin_action:users_stats")
+    builder.button(text="💰 Финансовая статистика",
+                   callback_data="admin_action:revenue_stats")
     builder.button(text=_(key="admin_view_logs_menu_button"),
                    callback_data="admin_action:view_logs_menu")
     
     builder.button(text=_(key="back_to_admin_panel_button"),
                    callback_data="admin_action:main")
-    builder.adjust(2, 1, 1)
+    builder.adjust(2, 2, 1, 1)
     return builder.as_markup()
 
 
@@ -58,6 +62,8 @@ def get_user_management_keyboard(i18n_instance, lang: str) -> InlineKeyboardMark
                    callback_data="admin_action:users_management")
     builder.button(text=_(key="admin_ban_management_section"),
                    callback_data="admin_section:ban_management")
+    builder.button(text="📊 Статистика поддержки",
+                   callback_data="admin_action:support_stats")
     builder.button(text=_(key="admin_update_all_names_button", default="🔄 Обновить имена"),
                    callback_data="admin_action:update_all_names")
     builder.button(text=_(key="admin_users_list_button", default="📋 Список всех"),
@@ -65,7 +71,7 @@ def get_user_management_keyboard(i18n_instance, lang: str) -> InlineKeyboardMark
     
     builder.button(text=_(key="back_to_admin_panel_button"),
                    callback_data="admin_action:main")
-    builder.adjust(2, 2, 1)
+    builder.adjust(2, 1, 2, 1)
     return builder.as_markup()
 
 

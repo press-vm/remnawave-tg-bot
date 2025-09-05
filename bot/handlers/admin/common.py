@@ -194,6 +194,22 @@ async def admin_panel_actions_callback_handler(
         # Показываем список всех пользователей с пагинацией
         page = int(action_parts[2]) if len(action_parts) > 2 else 0
         await show_users_list_handler(callback, page, i18n_data, settings, session)
+    elif action == "users_stats":
+        # Статистика пользователей
+        await admin_stats_handlers.users_stats_command_handler(
+            callback.message, state, i18n_data, settings, session
+        )
+        await callback.answer()
+    elif action == "revenue_stats":
+        # Финансовая статистика
+        await admin_stats_handlers.revenue_stats_callback_handler(
+            callback, i18n_data, settings, session
+        )
+    elif action == "support_stats":
+        # Статистика поддержки
+        await admin_stats_handlers.support_stats_callback_handler(
+            callback, i18n_data, settings, session
+        )
     elif action == "update_all_names":
         # Вызываем функцию обновления имён всех пользователей
         await callback.answer("Запускаю обновление имён пользователей...")

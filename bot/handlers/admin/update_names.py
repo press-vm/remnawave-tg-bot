@@ -2,6 +2,7 @@ import logging
 import asyncio
 from aiogram import Router, types
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
@@ -9,17 +10,6 @@ from db.dal import user_dal
 from bot.services.panel_api_service import PanelApiService
 
 router = Router(name="admin_update_names_router")
-
-
-@router.message(Command("update_names"))
-async def update_names_command(
-    message: types.Message,
-    settings: Settings,
-    panel_service: PanelApiService,
-    session: AsyncSession
-):
-    """Обновить имена всех пользователей в Remnawave (псевдоним для /update_all_names)"""
-    await update_all_user_names_command(message, settings, panel_service, session)
 
 
 @router.message(Command("update_all_names"))
@@ -110,31 +100,3 @@ async def update_all_user_names_command(
     except Exception as e:
         logging.error(f"Critical error in update_all_names: {e}", exc_info=True)
         await status_msg.edit_text(f"❌ Критическая ошибка: {str(e)}")
-
-
-@router.message(Command("check_subs"))
-async def check_subs_command(
-    message: types.Message,
-    settings: Settings,
-    session: AsyncSession
-):
-    """Команда /check_subs - проверка подписок"""
-    
-    try:
-        from db.dal import subscription_dal
-        
-        # Получаем статистику подписок
-        active_subs = await subscription_dal.get_active_subscriptions_count(session)
-        expired_subs = await subscription_dal.get_expired_subscriptions_count(session)
-        trial_subs = await subscription_dal.get_trial_subscriptions_count(session)
-        
-        response_text = f"📋 <b>Проверка подписок</b>\n\n"
-        response_text += f"✅ Активные: <b>{active_subs}</b>\n"
-        response_text += f"❌ Истекшие: <b>{expired_subs}</b>\n"
-        response_text += f"🆓 Пробные: <b>{trial_subs}</b>"
-        
-        await message.answer(response_text, parse_mode="HTML")
-        
-    except Exception as e:
-        logging.error(f"Error in check_subs command: {e}")
-        await message.answer(f"❌ Ошибка проверки подписок: {str(e)}")
