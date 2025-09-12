@@ -1,7 +1,8 @@
 services:
   # Telegram Shop Bot
   remnawave-tg-shop:
-    image: ghcr.io/press-vm/remnawave-tg-bot:latest
+    build: .
+    # image: ghcr.io/press-vm/remnawave-tg-bot:latest
     container_name: remnawave-tg-shop
     hostname: remnawave-tg-shop
     environment:

@@ -25,6 +25,10 @@ def get_admin_panel_keyboard(i18n_instance, lang: str,
     builder.button(text=_(key="admin_promo_marketing_section"),
                    callback_data="admin_section:promo_marketing")
     
+    # Реклама
+    builder.button(text=_(key="admin_ads_section", default="📈 Реклама"),
+                   callback_data="admin_action:ads")
+
     # Системные функции
     builder.button(text=_(key="admin_system_functions_section"),
                    callback_data="admin_section:system_functions")
