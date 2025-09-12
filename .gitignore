@@ -13,6 +13,7 @@ bot_database.sqlite3
 *.sqlite
 *.sqlite3
 db_backups/
+db/models_old.py
 
 # ==================== PYTHON ====================
 __pycache__/
