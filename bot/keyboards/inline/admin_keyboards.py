@@ -26,14 +26,20 @@ def get_admin_panel_keyboard(i18n_instance, lang: str,
                    callback_data="admin_section:promo_marketing")
     
     # Реклама
+<<<<<<< Updated upstream
     builder.button(text=_(key="admin_ads_section", default="📈 Реклама"),
                    callback_data="admin_action:ads")
 
+=======
+    builder.button(text="📊 Реклама",
+                   callback_data="admin_action:ads")
+    
+>>>>>>> Stashed changes
     # Системные функции
     builder.button(text=_(key="admin_system_functions_section"),
                    callback_data="admin_section:system_functions")
     
-    builder.adjust(1)
+    builder.adjust(2, 2, 1)
     return builder.as_markup()
 
 
@@ -106,12 +112,10 @@ def get_promo_marketing_keyboard(i18n_instance, lang: str) -> InlineKeyboardMark
                    callback_data="admin_action:create_bulk_promo")
     builder.button(text=_(key="admin_promo_management_button"),
                    callback_data="admin_action:promo_management")
-    builder.button(text=_(key="admin_ads_management_button", default="📊 Реклама"),
-                   callback_data="admin_action:ads")
     
     builder.button(text=_(key="back_to_admin_panel_button"),
                    callback_data="admin_action:main")
-    builder.adjust(2, 2, 1)
+    builder.adjust(2, 1, 1)
     return builder.as_markup()
 
 
