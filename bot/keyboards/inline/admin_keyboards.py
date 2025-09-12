@@ -26,15 +26,9 @@ def get_admin_panel_keyboard(i18n_instance, lang: str,
                    callback_data="admin_section:promo_marketing")
     
     # Реклама
-<<<<<<< Updated upstream
-    builder.button(text=_(key="admin_ads_section", default="📈 Реклама"),
-                   callback_data="admin_action:ads")
-
-=======
     builder.button(text="📊 Реклама",
                    callback_data="admin_action:ads")
     
->>>>>>> Stashed changes
     # Системные функции
     builder.button(text=_(key="admin_system_functions_section"),
                    callback_data="admin_section:system_functions")
