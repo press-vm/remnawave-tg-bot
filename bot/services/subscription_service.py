@@ -68,23 +68,6 @@ class SubscriptionService:
                     f"Failed to notify admin {admin_id} about panel user creation failure: {e}"
                 )
 
-    def _get_user_description(self, db_user: User) -> str:
-        """Формирует описание пользователя для Remnawave панели"""
-        full_name = f"{db_user.first_name or ''} {db_user.last_name or ''}".strip()
-        
-        if full_name:
-            # Если есть имя и username, показываем оба
-            if db_user.username:
-                return f"{full_name} (@{db_user.username})"
-            else:
-                return full_name
-        elif db_user.username:
-            # Если есть только username
-            return f"@{db_user.username}"
-        else:
-            # Если нет ни имени, ни username
-            return f"Telegram ID: {db_user.user_id}"
-
     async def _get_or_create_panel_user_link_details(
         self, session: AsyncSession, user_id: int, db_user: Optional[User] = None
     ) -> Tuple[Optional[str], Optional[str], Optional[str], bool]:
@@ -99,9 +82,6 @@ class SubscriptionService:
 
         current_local_panel_uuid = db_user.panel_user_uuid
         panel_username_on_panel_standard = f"tg_{user_id}"
-        
-        # Получаем описание для пользователя
-        user_description = self._get_user_description(db_user)
 
         panel_user_obj_from_api = None
         panel_user_created_or_linked_now = False
@@ -139,7 +119,11 @@ class SubscriptionService:
                     creation_response = await self.panel_service.create_panel_user(
                         username_on_panel=panel_username_on_panel_standard,
                         telegram_id=user_id,
-                        description=user_description,  # Из diff: добавляем description
+                        description="\n".join([
+                            (db_user.username or "") if db_user else "",
+                            (db_user.first_name or "") if db_user else "",
+                            (db_user.last_name or "") if db_user else "",
+                        ]),
                         specific_squad_uuids=self.settings.parsed_user_squad_uuids,
                         default_traffic_limit_bytes=self.settings.user_traffic_limit_bytes,
                         default_traffic_limit_strategy=self.settings.USER_TRAFFIC_STRATEGY,
@@ -163,7 +147,11 @@ class SubscriptionService:
                 creation_response = await self.panel_service.create_panel_user(
                     username_on_panel=panel_username_on_panel_standard,
                     telegram_id=user_id,
-                    description=user_description,  # Из diff: добавляем description
+                    description="\n".join([
+                        (db_user.username or "") if db_user else "",
+                        (db_user.first_name or "") if db_user else "",
+                        (db_user.last_name or "") if db_user else "",
+                    ]),
                     specific_squad_uuids=self.settings.parsed_user_squad_uuids,
                     default_traffic_limit_bytes=self.settings.user_traffic_limit_bytes,
                     default_traffic_limit_strategy=self.settings.USER_TRAFFIC_STRATEGY,
@@ -255,6 +243,8 @@ class SubscriptionService:
                     "panel_user_uuid": actual_panel_uuid_from_api
                 }
 
+                # Do not overwrite Telegram username with panel username.
+                # Only update the local linkage to panel UUID here.
                 await user_dal.update_user(session, user_id, update_data_for_local_user)
                 db_user.panel_user_uuid = actual_panel_uuid_from_api
                 panel_user_created_or_linked_now = True
@@ -270,26 +260,27 @@ class SubscriptionService:
             except ValueError:
                 pass
 
-        # Обновляем telegramId и description если нужно
-        update_needed = False
-        update_payload = {}
-        
-        if panel_telegram_id_int != user_id:
-            update_payload["telegramId"] = user_id
-            update_needed = True
-            
-        # Проверяем и обновляем description если он пустой или устарел
-        current_description = panel_user_obj_from_api.get("description", "")
-        if not current_description or current_description.startswith("tg_") or current_description.startswith("Telegram ID:"):
-            update_payload["description"] = user_description
-            update_needed = True
-            
-        if update_needed and current_local_panel_uuid:
+        if (
+            panel_user_obj_from_api
+            and current_local_panel_uuid
+            and panel_telegram_id_int != user_id
+        ):
             logging.info(
-                f"Updating panel user {current_local_panel_uuid}: {update_payload}"
+                f"Panel user {current_local_panel_uuid} has telegramId '{panel_telegram_id_from_api}'. Updating on panel to '{user_id}'."
             )
+            # Also set readable description with Telegram fields
             await self.panel_service.update_user_details_on_panel(
-                current_local_panel_uuid, update_payload
+                current_local_panel_uuid,
+                {
+                    "telegramId": user_id,
+                    "description": "\n".join(
+                        [
+                            (db_user.username or "") if db_user else "",
+                            (db_user.first_name or "") if db_user else "",
+                            (db_user.last_name or "") if db_user else "",
+                        ]
+                    ),
+                },
             )
 
         panel_sub_link_id = panel_user_obj_from_api.get(
@@ -307,7 +298,7 @@ class SubscriptionService:
             panel_sub_link_id,
             panel_short_uuid,
             panel_user_created_or_linked_now,
-            )
+        )
 
     async def activate_trial_subscription(
         self, session: AsyncSession, user_id: int
@@ -384,6 +375,15 @@ class SubscriptionService:
             expire_at=end_date,
             status="ACTIVE",
             traffic_limit_bytes=self.settings.trial_traffic_limit_bytes,
+        )
+
+        # Add user description based on Telegram profile
+        panel_update_payload["description"] = "\n".join(
+            [
+                (db_user.username or "") if db_user else "",
+                (db_user.first_name or "") if db_user else "",
+                (db_user.last_name or "") if db_user else "",
+            ]
         )
 
         updated_panel_user = await self.panel_service.update_user_details_on_panel(
@@ -510,7 +510,6 @@ class SubscriptionService:
             "provider": provider,
             "skip_notifications": provider == "tribute" and self.settings.TRIBUTE_SKIP_NOTIFICATIONS,
             "auto_renew_enabled": True,
-
         }
         try:
             new_or_updated_sub = await subscription_dal.upsert_subscription(
@@ -528,6 +527,15 @@ class SubscriptionService:
             expire_at=final_end_date,
             status="ACTIVE",
             traffic_limit_bytes=self.settings.user_traffic_limit_bytes,
+        )
+
+        # Add user description based on Telegram profile
+        panel_update_payload["description"] = "\n".join(
+            [
+                (db_user.username or "") if db_user else "",
+                (db_user.first_name or "") if db_user else "",
+                (db_user.last_name or "") if db_user else "",
+            ]
         )
 
         updated_panel_user = await self.panel_service.update_user_details_on_panel(
@@ -848,51 +856,6 @@ class SubscriptionService:
             logging.warning(
                 f"Could not find subscription for user {user_id} ending at {subscription_end_date.isoformat()} to update notification time."
             )
-
-    async def update_user_details(
-        self,
-        session: AsyncSession,
-        user_id: int,
-        language_code: Optional[str] = None,  # Сделано optional
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
-        username: Optional[str] = None,
-    ):
-        """Update user details and sync with panel description"""
-        try:
-            update_data = {}
-            if language_code is not None:
-                update_data["language_code"] = language_code
-            if first_name is not None:
-                update_data["first_name"] = first_name
-            if last_name is not None:
-                update_data["last_name"] = last_name
-            if username is not None:
-                update_data["username"] = username
-            
-            if update_data:
-                await user_dal.update_user(session, user_id, update_data)
-            
-            # Get updated user
-            db_user = await user_dal.get_user_by_id(session, user_id)
-            if not db_user:
-                return
-            
-            # Create user description using new function
-            description = self._get_user_description(db_user)
-            
-            logging.info(f"Updated user {user_id} with description: {description}")
-            
-            # Sync with panel if linked
-            panel_uuid = db_user.panel_user_uuid
-            if panel_uuid:
-                await self.panel_service.update_user_details_on_panel(
-                    panel_uuid, {"description": description}
-                )
-                logging.info(f"Synced description to panel for user {user_id}")
-            
-        except Exception as e:
-            logging.error(f"Error updating user details for {user_id}: {e}")
 
     # Helpers
     def _build_panel_update_payload(

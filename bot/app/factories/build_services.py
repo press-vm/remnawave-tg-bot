@@ -86,10 +86,8 @@ def build_core_services(
         )
         
         # Panel Webhook Service
-        panel_webhook_service = PanelWebhookService(
-            bot, settings, i18n, async_session_factory, panel_service
-        )
-        
+        panel_webhook_service = PanelWebhookService(bot, settings, i18n, async_session_factory, panel_service)
+
         # YooKassa (последний, так как использует bot_username)
         yookassa_service = YooKassaService(
             shop_id=settings.YOOKASSA_SHOP_ID,
@@ -98,6 +96,15 @@ def build_core_services(
             bot_username_for_default_return=bot_username_for_default_return,
             settings_obj=settings,
         )
+
+        # Wire services that depend on each other
+        try:
+            # Attach YooKassa to subscription service for auto-renew charges
+            setattr(subscription_service, "yookassa_service", yookassa_service)
+            # Allow panel webhook to trigger renewals through subscription service
+            setattr(panel_webhook_service, "subscription_service", subscription_service)
+        except Exception:
+            pass
 
         services = {
             "panel_service": panel_service,
