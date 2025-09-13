@@ -164,6 +164,7 @@ async def get_totals(session: AsyncSession) -> Dict[str, float]:
 
 async def delete_campaign(session: AsyncSession, campaign_id: int) -> bool:
     """Delete ad campaign by id along with related attributions.
+
     Returns True if campaign existed and was deleted, False otherwise.
     """
     try:
@@ -177,3 +178,5 @@ async def delete_campaign(session: AsyncSession, campaign_id: int) -> bool:
     except Exception as e:
         logging.error(f"Failed to delete AdCampaign id={campaign_id}: {e}", exc_info=True)
         raise
+
+

@@ -1,7 +1,6 @@
 import uuid
 import logging
 import asyncio
-import random
 from typing import Optional, Dict, Any, List
 
 from yookassa import Configuration, Payment as YooKassaPayment
@@ -9,26 +8,6 @@ from yookassa.domain.request.payment_request_builder import PaymentRequestBuilde
 from yookassa.domain.common.confirmation_type import ConfirmationType
 
 from config.settings import Settings
-
-
-# Список безопасных формулировок для чеков
-SAFE_DESCRIPTIONS = [
-    "Информационно-технологические услуги",
-    "Услуги по обеспечению защищённого удалённого доступа",
-    "Техническая поддержка IT-систем",
-    "Организация удалённого подключения к ресурсам",
-    "IT-услуги по настройке и поддержке безопасности",
-    "Услуги по администрированию IT-инфраструктуры",
-    "Техническое сопровождение пользователей",
-    "Услуги по организации защищённого доступа",
-    "IT-услуги по обеспечению конфиденциальности данных",
-    "Информационно-технологическое сопровождение",
-    "Консультационные услуги в сфере IT",
-    "Услуги по настройке сетевого оборудования",
-    "Техническое обслуживание информационных систем",
-    "Услуги по обеспечению информационной безопасности",
-    "Настройка и сопровождение программного обеспечения"
-]
 
 
 class YooKassaService:
@@ -79,23 +58,14 @@ class YooKassaService:
             self,
             amount: float,
             currency: str,
-            description: Optional[str] = None,  # Сделали опциональным
-            metadata: Dict[str, Any] = None,
+            description: str,
+            metadata: Dict[str, Any],
             receipt_email: Optional[str] = None,
             receipt_phone: Optional[str] = None,
-            use_safe_description: bool = True) -> Optional[Dict[str, Any]]:
-        """
-        Создание платежа через YooKassa
-        
-        Args:
-            amount: Сумма платежа
-            currency: Валюта (RUB)
-            description: Описание платежа (если None, используется безопасная формулировка)
-            metadata: Метаданные платежа
-            receipt_email: Email для чека
-            receipt_phone: Телефон для чека
-            use_safe_description: Использовать ли безопасные формулировки (по умолчанию True)
-        """
+            save_payment_method: bool = False,
+            payment_method_id: Optional[str] = None,
+            capture: bool = True,
+            bind_only: bool = False) -> Optional[Dict[str, Any]]:
         if not self.configured:
             logging.error("YooKassa is not configured. Cannot create payment.")
             return None
@@ -105,18 +75,11 @@ class YooKassaService:
                 "YooKassaService: Settings object not available. Cannot create payment with receipt details."
             )
             return {
-                "error": True,
-                "internal_message": "Service settings (Settings object) not initialized."
+                "error":
+                True,
+                "internal_message":
+                "Service settings (Settings object) not initialized."
             }
-
-        # Если описание не передано или включены безопасные формулировки - используем безопасное описание
-        if not description or use_safe_description:
-            description = random.choice(SAFE_DESCRIPTIONS)
-            logging.info(f"Using safe description for payment: {description}")
-        
-        # Обеспечиваем что metadata всегда dict
-        if metadata is None:
-            metadata = {}
 
         customer_contact_for_receipt = {}
         if receipt_email:
@@ -124,14 +87,17 @@ class YooKassaService:
         elif receipt_phone:
             customer_contact_for_receipt["phone"] = receipt_phone
         elif self.settings.YOOKASSA_DEFAULT_RECEIPT_EMAIL:
-            customer_contact_for_receipt["email"] = self.settings.YOOKASSA_DEFAULT_RECEIPT_EMAIL
+            customer_contact_for_receipt[
+                "email"] = self.settings.YOOKASSA_DEFAULT_RECEIPT_EMAIL
         else:
             logging.error(
                 "CRITICAL: No email/phone for YooKassa receipt provided and YOOKASSA_DEFAULT_RECEIPT_EMAIL is not set."
             )
             return {
-                "error": True,
-                "internal_message": "YooKassa receipt customer contact (email/phone) missing and no default email configured."
+                "error":
+                True,
+                "internal_message":
+                "YooKassa receipt customer contact (email/phone) missing and no default email configured."
             }
 
         try:
@@ -140,25 +106,39 @@ class YooKassaService:
                 "value": str(round(amount, 2)),
                 "currency": currency.upper()
             })
-            builder.set_capture(True)
+            # For binding cards only, do not capture and set minimal amount
+            if bind_only:
+                capture = False
+                amount = max(amount, 1.00)
+            builder.set_capture(capture)
             builder.set_confirmation({
                 "type": ConfirmationType.REDIRECT,
                 "return_url": self.return_url
             })
             builder.set_description(description)
             builder.set_metadata(metadata)
+            if save_payment_method:
+                # Ask YooKassa to save method for off-session charges
+                builder.set_save_payment_method(True)
+            if payment_method_id:
+                # Use a previously saved payment method for merchant-initiated payments
+                builder.set_payment_method_id(payment_method_id)
 
-            # Позиция в чеке с безопасным описанием
             receipt_items_list: List[Dict[str, Any]] = [{
-                "description": description[:128],  # Ограничиваем длину для чека
-                "quantity": "1.00",
+                "description":
+                description[:128],
+                "quantity":
+                "1.00",
                 "amount": {
                     "value": str(round(amount, 2)),
                     "currency": currency.upper()
                 },
-                "vat_code": str(self.settings.YOOKASSA_VAT_CODE),
-                "payment_mode": self.settings.YOOKASSA_PAYMENT_MODE,
-                "payment_subject": self.settings.YOOKASSA_PAYMENT_SUBJECT
+                "vat_code":
+                str(self.settings.YOOKASSA_VAT_CODE),
+                "payment_mode":
+                getattr(self.settings, 'yk_receipt_payment_mode', self.settings.YOOKASSA_PAYMENT_MODE),
+                "payment_subject":
+                getattr(self.settings, 'yk_receipt_payment_subject', self.settings.YOOKASSA_PAYMENT_SUBJECT)
             }]
 
             receipt_data_dict: Dict[str, Any] = {
@@ -173,56 +153,59 @@ class YooKassaService:
 
             logging.info(
                 f"Creating YooKassa payment (Idempotence-Key: {idempotence_key}). "
-                f"Amount: {amount} {currency}. Description: {description}. "
-                f"Metadata: {metadata}"
+                f"Amount: {amount} {currency}. Metadata: {metadata}. Receipt: {receipt_data_dict}"
             )
 
             loop = asyncio.get_running_loop()
             response = await loop.run_in_executor(
-                None, lambda: YooKassaPayment.create(payment_request, idempotence_key)
-            )
+                None, lambda: YooKassaPayment.create(payment_request,
+                                                     idempotence_key))
 
             logging.info(
-                f"YooKassa Payment.create response: ID={response.id}, "
-                f"Status={response.status}, Paid={response.paid}"
+                f"YooKassa Payment.create response: ID={response.id}, Status={response.status}, Paid={response.paid}"
             )
 
             return {
-                "id": response.id,
-                "confirmation_url": response.confirmation.confirmation_url
-                    if response.confirmation else None,
-                "status": response.status,
-                "metadata": response.metadata,
-                "amount_value": float(response.amount.value),
-                "amount_currency": response.amount.currency,
-                "idempotence_key_used": idempotence_key,
-                "paid": response.paid,
-                "refundable": response.refundable,
-                "created_at": response.created_at.isoformat()
-                    if hasattr(response.created_at, 'isoformat')
-                    else str(response.created_at),
-                "description_from_yk": response.description,
-                "test_mode": response.test if hasattr(response, 'test') else None
+                "id":
+                response.id,
+                "confirmation_url":
+                response.confirmation.confirmation_url
+                if response.confirmation else None,
+                "status":
+                response.status,
+                "metadata":
+                response.metadata,
+                "amount_value":
+                float(response.amount.value),
+                "amount_currency":
+                response.amount.currency,
+                "idempotence_key_used":
+                idempotence_key,
+                "paid":
+                response.paid,
+                "refundable":
+                response.refundable,
+                "created_at":
+                response.created_at.isoformat() if hasattr(
+                    response.created_at, 'isoformat') else str(
+                        response.created_at),
+                "description_from_yk":
+                response.description,
+                "test_mode":
+                response.test if hasattr(response, 'test') else None,
+                "payment_method": getattr(response, 'payment_method', None),
             }
         except Exception as e:
-            logging.error(f"YooKassa payment creation failed: {e}", exc_info=True)
+            logging.error(f"YooKassa payment creation failed: {e}",
+                          exc_info=True)
             return None
 
     async def get_payment_info(
             self, payment_id_in_yookassa: str) -> Optional[Dict[str, Any]]:
-        """
-        Получение информации о платеже из YooKassa
-        
-        Args:
-            payment_id_in_yookassa: ID платежа в системе YooKassa
-            
-        Returns:
-            Словарь с информацией о платеже или None
-        """
         if not self.configured:
-            logging.error("YooKassa is not configured. Cannot get payment info.")
+            logging.error(
+                "YooKassa is not configured. Cannot get payment info.")
             return None
-            
         try:
             logging.info(
                 f"Fetching payment info from YooKassa for ID: {payment_id_in_yookassa}"
@@ -230,14 +213,32 @@ class YooKassaService:
 
             loop = asyncio.get_running_loop()
             payment_info_yk = await loop.run_in_executor(
-                None, lambda: YooKassaPayment.find_one(payment_id_in_yookassa)
-            )
+                None, lambda: YooKassaPayment.find_one(payment_id_in_yookassa))
 
             if payment_info_yk:
                 logging.info(
-                    f"YooKassa payment info for {payment_id_in_yookassa}: "
-                    f"Status={payment_info_yk.status}, Paid={payment_info_yk.paid}"
+                    f"YooKassa payment info for {payment_id_in_yookassa}: Status={payment_info_yk.status}, Paid={payment_info_yk.paid}"
                 )
+                pm = getattr(payment_info_yk, 'payment_method', None)
+                pm_payload: Dict[str, Any] = {}
+                if pm:
+                    # Collect common fields, including id and hints for last4
+                    pm_id = getattr(pm, 'id', None)
+                    pm_type = getattr(pm, 'type', None)
+                    pm_title = getattr(pm, 'title', None)
+                    account_number = getattr(pm, 'account_number', None) or getattr(pm, 'account', None)
+                    card_obj = getattr(pm, 'card', None)
+                    last4_val = None
+                    if card_obj and hasattr(card_obj, 'last4'):
+                        last4_val = getattr(card_obj, 'last4')
+                    elif isinstance(account_number, str) and len(account_number) >= 4:
+                        last4_val = account_number[-4:]
+                    pm_payload = {
+                        "id": pm_id,
+                        "type": pm_type,
+                        "title": pm_title,
+                        "card_last4": last4_val,
+                    }
                 return {
                     "id": payment_info_yk.id,
                     "status": payment_info_yk.status,
@@ -247,17 +248,11 @@ class YooKassaService:
                     "metadata": payment_info_yk.metadata,
                     "description": payment_info_yk.description,
                     "refundable": payment_info_yk.refundable,
-                    "created_at": payment_info_yk.created_at.isoformat()
-                        if hasattr(payment_info_yk.created_at, 'isoformat')
-                        else str(payment_info_yk.created_at),
-                    "captured_at": payment_info_yk.captured_at.isoformat()
-                        if payment_info_yk.captured_at and 
-                           hasattr(payment_info_yk.captured_at, 'isoformat')
-                        else None,
-                    "payment_method_type": payment_info_yk.payment_method.type
-                        if payment_info_yk.payment_method else None,
-                    "test_mode": payment_info_yk.test
-                        if hasattr(payment_info_yk, 'test') else None
+                    "created_at": payment_info_yk.created_at.isoformat() if hasattr(
+                        payment_info_yk.created_at, 'isoformat') else str(payment_info_yk.created_at),
+                    "captured_at": payment_info_yk.captured_at.isoformat() if getattr(payment_info_yk, 'captured_at', None) and hasattr(payment_info_yk.captured_at, 'isoformat') else None,
+                    "payment_method": pm_payload,
+                    "test_mode": getattr(payment_info_yk, 'test', None),
                 }
             else:
                 logging.warning(
@@ -267,6 +262,18 @@ class YooKassaService:
         except Exception as e:
             logging.error(
                 f"YooKassa get payment info for {payment_id_in_yookassa} failed: {e}",
-                exc_info=True
-            )
+                exc_info=True)
             return None
+
+    async def cancel_payment(self, payment_id_in_yookassa: str) -> bool:
+        if not self.configured:
+            logging.error("YooKassa is not configured. Cannot cancel payment.")
+            return False
+        try:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, lambda: YooKassaPayment.cancel(payment_id_in_yookassa))
+            logging.info(f"Cancelled YooKassa payment {payment_id_in_yookassa}")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to cancel YooKassa payment {payment_id_in_yookassa}: {e}")
+            return False
